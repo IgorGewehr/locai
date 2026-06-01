@@ -1,125 +1,100 @@
-"""FastAPI routes: /process and /health."""
+"""Public HTTP endpoints.
+
+GET  /health                — liveness probe
+POST /process               — main agent entrypoint (HMAC-authed)
+"""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+import time
+import uuid
 
-import structlog
-from fastapi import APIRouter, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..auth import verify_request
-from ..graph.graph import run_agent, run_operator
+from ..auth import verify_inbound
+from ..graph.graph import run_agent
+from ..logging_config import get_logger
+from ..schemas import ProcessRequest, ProcessResponse
+from ..store.runs import persist_run
+from ..tools.client import send_final_message
 
-log = structlog.get_logger()
 router = APIRouter()
-
-MAX_HISTORY = 40  # Hard cap on conversation history length
-
-
-class ProcessRequest(BaseModel):
-    tenant_id: str
-    conversation_id: str
-    message_id: str
-    message: str = Field(max_length=8000)
-    history: list[dict[str, str]] = Field(default_factory=list, max_length=MAX_HISTORY)
-    contact: dict[str, str] = Field(default_factory=dict)
-
-
-class ProcessResponse(BaseModel):
-    run_id: str
-    status: str
-    final_response: str | None
-    media_urls: list[str] = []
-    intent: str | None
-    iterations: int
-    total_latency_ms: int
-    total_tokens_in: int = 0
-    total_tokens_out: int = 0
-    cost_usd: float = 0.0
-    tool_calls: list[dict[str, Any]] = []
-    error: str | None
-
-
-@router.post("/process", response_model=ProcessResponse)
-async def process(request: Request) -> ProcessResponse:
-    tenant_id, raw_body = await verify_request(request)
-
-    if not tenant_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="tenant_id is required")
-
-    req = ProcessRequest.model_validate(json.loads(raw_body))
-
-    log.info("agent.process", tenant_id=tenant_id[:8] + "***", conversation_id=req.conversation_id)
-
-    result = await run_agent(
-        tenant_id=tenant_id,  # Use authenticated tenant_id, not request body
-        conversation_id=req.conversation_id,
-        message_id=req.message_id,
-        message=req.message,
-        history=req.history,
-        contact=req.contact,
-    )
-
-    return ProcessResponse(
-        run_id=result.run_id,
-        status=result.status,
-        final_response=result.final_response,
-        media_urls=result.media_urls,
-        intent=result.intent,
-        iterations=result.iterations,
-        total_latency_ms=result.total_latency_ms,
-        total_tokens_in=result.total_tokens_in,
-        total_tokens_out=result.total_tokens_out,
-        cost_usd=result.cost_usd,
-        tool_calls=result.tool_calls,
-        error=result.error,
-    )
-
-
-class OperateRequest(BaseModel):
-    tenant_id: str
-    message: str
-    mode: str = "analista"  # "operador" | "analista"
-
-
-class OperateResponse(BaseModel):
-    reply: str
-
-
-@router.post("/operate", response_model=OperateResponse)
-async def operate(request: Request) -> OperateResponse:
-    """Operator console: the dashboard sends an operator message; Sofia reads
-    across the whole system (and, in operador mode, may act) and replies in
-    plain text.
-    """
-    tenant_id, raw_body = await verify_request(request)
-
-    if not tenant_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="tenant_id is required")
-
-    req = OperateRequest.model_validate(json.loads(raw_body))
-
-    mode = req.mode if req.mode in ("operador", "analista") else "analista"
-
-    log.info(
-        "agent.operate",
-        tenant_id=tenant_id[:8] + "***",
-        mode=mode,
-    )
-
-    reply = await run_operator(
-        tenant_id=tenant_id,  # Use authenticated tenant_id, not request body
-        message=req.message,
-        mode=mode,
-    )
-
-    return OperateResponse(reply=reply)
+log = get_logger("api")
 
 
 @router.get("/health")
-async def health() -> dict[str, Any]:
+async def health() -> dict[str, str]:
     return {"status": "ok", "service": "locai-agent"}
+
+
+@router.post("/process", response_model=ProcessResponse)
+async def process(request: Request, auth: tuple[str, str] = Depends(verify_inbound)) -> ProcessResponse:
+    tenant_id, raw_body = auth
+
+    try:
+        req = ProcessRequest.model_validate(json.loads(raw_body))
+    except Exception as e:
+        log.error("process.bad_body", error=str(e))
+        raise HTTPException(status_code=400, detail="Invalid body") from e
+
+    run_id = str(uuid.uuid4())
+    start = time.time()
+    log.info(
+        "process.start",
+        run_id=run_id,
+        tenant_id=tenant_id,
+        conversation_id=req.conversation_id,
+        channel=req.channel,
+        message_preview=req.message[:80],
+    )
+
+    try:
+        result = await run_agent(run_id=run_id, tenant_id=tenant_id, req=req)
+
+        # Best-effort persist
+        try:
+            await persist_run(tenant_id, result.to_log())
+        except Exception as err:
+            log.warning("process.persist_failed", run_id=run_id, error=str(err))
+
+        # Dispatch final message (if any) — direct_send tools may have already done it
+        if result.final_response:
+            try:
+                await send_final_message(
+                    tenant_id=tenant_id,
+                    conversation_id=req.conversation_id,
+                    channel=req.channel,
+                    recipient_id=req.recipient_id,
+                    content=result.final_response,
+                )
+            except Exception as err:
+                log.error("process.send_failed", run_id=run_id, error=str(err))
+
+        latency = int((time.time() - start) * 1000)
+        log.info(
+            "process.done",
+            run_id=run_id,
+            iterations=result.iterations,
+            intent=result.intent,
+            latency_ms=latency,
+        )
+        return ProcessResponse(
+            run_id=run_id,
+            final_response=result.final_response,
+            intent=result.intent,
+            iterations=result.iterations,
+            status="success" if not result.error else "error",
+            error=result.error,
+        )
+    except Exception as e:
+        latency = int((time.time() - start) * 1000)
+        log.error("process.fatal", run_id=run_id, error=str(e), latency_ms=latency)
+        return ProcessResponse(
+            run_id=run_id,
+            final_response=None,
+            intent=None,
+            iterations=0,
+            status="error",
+            error=str(e),
+        )

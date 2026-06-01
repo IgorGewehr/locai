@@ -1,9 +1,43 @@
+import { useMemo } from 'react';
 import { useAuth as useAuthContext } from '@/contexts/AuthProvider';
 
 export function useAuth() {
   const authContext = useAuthContext();
 
-  if (!authContext.user) {
+  const ctxUser = authContext.user;
+  const uid = ctxUser?.uid;
+  const email = ctxUser?.email;
+  const name = ctxUser?.name;
+  const fullName = ctxUser?.fullName;
+  const tenantId = ctxUser?.tenantId;
+  const role = ctxUser?.role;
+
+  // Memoize com base apenas em campos PRIMITIVOS para manter identidade
+  // estável entre renders e não quebrar memoização em cascata.
+  const user = useMemo(() => {
+    if (!uid && !email && !name && !fullName && !tenantId && !role) {
+      // Sem usuário no contexto
+      return null;
+    }
+
+    const displayName = name || fullName || '';
+    const userName = name || fullName || '';
+
+    return {
+      // Manter compatibilidade com Firebase User
+      uid,
+      email,
+      displayName,
+      // Propriedades customizadas
+      id: uid || 'default-user',
+      name: userName,
+      tenantId: tenantId || uid,
+      role: role || 'user'
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, email, name, fullName, tenantId, role]);
+
+  if (!ctxUser) {
     return {
       user: null,
       loading: authContext.loading,
@@ -13,31 +47,10 @@ export function useAuth() {
     };
   }
 
-  // ✅ LOG DEBUG: Ver dados do usuário sendo mapeados
-  const displayName = authContext.user.name || authContext.user.fullName || '';
-  const userName = authContext.user.name || authContext.user.fullName || '';
-
-  console.log('[useAuth Hook] User data mapping:', {
-    contextUserName: authContext.user.name,
-    contextUserFullName: authContext.user.fullName,
-    mappedDisplayName: displayName,
-    mappedUserName: userName
-  });
-
   return {
-    user: {
-      // Manter compatibilidade com Firebase User
-      uid: authContext.user.uid,
-      email: authContext.user.email,
-      displayName,
-      // Propriedades customizadas
-      id: authContext.user.uid || 'default-user',
-      name: userName,
-      tenantId: authContext.user.tenantId || authContext.user.uid,
-      role: authContext.user.role || 'user'
-    },
+    user,
     loading: authContext.loading,
-    authenticated: !!authContext.user,
+    authenticated: !!ctxUser,
     // Re-export all other functions
     ...authContext
   };

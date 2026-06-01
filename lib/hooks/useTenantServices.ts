@@ -8,16 +8,15 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
  */
 export function useTenantServices() {
   const { user } = useAuth();
-  
+  const tenantId = user?.tenantId || user?.uid;
+
   const services = useMemo(() => {
-    if (!user?.tenantId && !user?.uid) {
+    if (!tenantId) {
       return null;
     }
-    
-    // Use tenantId if available, otherwise use uid as tenantId
-    const tenantId = user.tenantId || user.uid;
+
     return new TenantServiceFactory(tenantId);
-  }, [user]);
+  }, [tenantId]);
 
   return services;
 }
@@ -27,16 +26,16 @@ export function useTenantServices() {
  */
 export function useTenantService<T extends { id?: string }>(collectionName: string) {
   const { user } = useAuth();
-  
+  const tenantId = user?.tenantId || user?.uid;
+
   const service = useMemo(() => {
-    if (!user?.tenantId && !user?.uid) {
+    if (!tenantId) {
       return null;
     }
-    
-    const tenantId = user.tenantId || user.uid;
+
     const factory = new TenantServiceFactory(tenantId);
     return factory.createService<T>(collectionName);
-  }, [user, collectionName]);
+  }, [tenantId, collectionName]);
 
   return service;
 }

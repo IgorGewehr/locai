@@ -43,19 +43,15 @@ export interface Property {
   createdAt: Date;
   updatedAt: Date;
 
-  // iCal Integration fields
-  iCalExportToken?: string; // Secure token for public iCal feed export
-  iCalExportTokenGeneratedAt?: Date; // When the export token was generated
-  iCalImportUrl?: string; // External iCal URL to import from (e.g., Airbnb)
-  iCalImportSource?: 'airbnb' | 'booking' | 'vrbo' | 'other'; // Source platform
-  iCalLastSync?: Date; // Last successful import sync
-  airbnbPropertyId?: string; // Airbnb property ID for easy reference
-  externalCalendarUrls?: Array<{
-    source: 'airbnb' | 'booking' | 'vrbo' | 'other';
-    url: string;
-    isActive: boolean;
-    lastSync?: Date;
-  }>; // Support multiple external calendars
+  // Airbnb integration — sistema NÃO gerencia mais disponibilidade.
+  // Apenas:
+  //  - airbnbUrl: link público (agent compartilha via share_airbnb_link)
+  //  - airbnbPropertyId: id extraído da URL
+  //  - iCalImportUrl: feed iCal do Airbnb consultado SOB DEMANDA pelo agent
+  //                   (ical_check_availability), nada persistido
+  airbnbPropertyId?: string;
+  airbnbUrl?: string;
+  iCalImportUrl?: string;
 }
 
 export interface Reservation {

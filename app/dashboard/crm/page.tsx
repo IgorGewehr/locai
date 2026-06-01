@@ -175,13 +175,16 @@ function CRMPageContent() {
         [LeadStatus.NURTURING]: [],
       };
 
-      // Load leads for each status using tenant services
-      for (const status of Object.values(LeadStatus)) {
-        if (status !== LeadStatus.LOST && status !== LeadStatus.NURTURING) {
-          const statusLeads = await services.leads.getWhere('status', '==', status);
-          leadsByStatus[status] = statusLeads;
-        }
-      }
+      // Load leads for each status using tenant services (parallel)
+      const statuses = Object.values(LeadStatus).filter(
+        (status) => status !== LeadStatus.LOST && status !== LeadStatus.NURTURING
+      );
+      const results = await Promise.all(
+        statuses.map((status) => services.leads.getWhere('status', '==', status))
+      );
+      statuses.forEach((status, index) => {
+        leadsByStatus[status] = results[index];
+      });
 
       setLeads(leadsByStatus);
       logger.info('✅ [CRM] Leads loaded successfully', {

@@ -65,67 +65,7 @@ export async function triggerNewConversationNotification(
   }
 }
 
-/**
- * Trigger notification when a reservation is created
- */
-export async function triggerReservationCreatedNotification(
-  tenantId: string,
-  reservationId: string,
-  data: {
-    propertyName: string
-    clientName: string
-    checkIn: Date
-    checkOut: Date
-    totalAmount: number
-    guests: number
-    nights: number
-  },
-  targetUserId: string,
-  targetUserEmail?: string
-): Promise<void> {
-  try {
-    const notificationService = NotificationServiceFactory.getInstance(tenantId)
-
-    await notificationService.createNotification({
-      targetUserId,
-      targetUserName: targetUserEmail,
-      type: NotificationType.RESERVATION_CREATED,
-      title: '🎉 Nova Reserva Criada',
-      message: `Reserva confirmada para ${data.propertyName} de ${data.checkIn.toLocaleDateString('pt-BR')} até ${data.checkOut.toLocaleDateString('pt-BR')}. Cliente: ${data.clientName}. Total: R$ ${data.totalAmount.toFixed(2)}.`,
-      entityType: 'reservation',
-      entityId: reservationId,
-      entityData: data,
-      priority: NotificationPriority.HIGH,
-      channels: [NotificationChannel.DASHBOARD],
-      actions: [{
-        id: 'view_reservation',
-        label: 'Ver Reserva',
-        type: 'primary',
-        action: 'navigate',
-        config: {
-          url: `/dashboard/reservations/${reservationId}`
-        }
-      }],
-      metadata: {
-        source: 'reservation_api',
-        triggerEvent: 'reservation_created',
-        reservationId
-      }
-    })
-
-    logger.info('[Notification Trigger] Reservation created notification sent', {
-      tenantId: tenantId.substring(0, 8) + '***',
-      reservationId,
-      targetUserId: targetUserId.substring(0, 8) + '***'
-    })
-  } catch (error) {
-    logger.error('[Notification Trigger] Failed to send reservation notification', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      tenantId: tenantId.substring(0, 8) + '***',
-      reservationId
-    })
-  }
-}
+// triggerReservationCreatedNotification removida — sistema não cria reservas.
 
 /**
  * Trigger notification when a payment is received
@@ -304,12 +244,12 @@ export async function triggerUrgentSystemNotification(
 
 // ============================================================================
 // AI FUNCTION NOTIFICATION TRIGGERS
-// These triggers are designed to be called from AI functions in /api/ai/functions/
+// These triggers are designed to be called from the LangGraph agent (locai/agent).
 // ============================================================================
 
 /**
  * Trigger notification when a new lead is created via AI
- * Used by: /api/ai/functions/create-lead
+ * Used by: locai/agent (LangGraph) — chamado via tools/conversations
  */
 export async function triggerLeadCreatedNotification(
   tenantId: string,
@@ -380,7 +320,7 @@ export async function triggerLeadCreatedNotification(
 
 /**
  * Trigger notification when a meeting is scheduled via AI
- * Used by: /api/ai/functions/schedule-meeting
+ * Used by: locai/agent (LangGraph) — chamado via tools/conversations
  */
 export async function triggerMeetingScheduledNotification(
   tenantId: string,
@@ -448,7 +388,7 @@ export async function triggerMeetingScheduledNotification(
 
 /**
  * Trigger notification when a property visit is scheduled via AI
- * Used by: /api/ai/functions/schedule-visit
+ * Used by: locai/agent (LangGraph) — chamado via tools/conversations
  */
 export async function triggerVisitScheduledNotification(
   tenantId: string,
@@ -517,7 +457,7 @@ export async function triggerVisitScheduledNotification(
 
 /**
  * Trigger notification when a payment link is created via AI
- * Used by: /api/ai/functions/create-payment-link
+ * Used by: locai/agent (LangGraph) — chamado via tools/conversations
  */
 export async function triggerPaymentLinkCreatedNotification(
   tenantId: string,
@@ -592,7 +532,7 @@ export async function triggerPaymentLinkCreatedNotification(
 
 /**
  * Trigger notification when a PIX QR code is generated via AI
- * Used by: /api/ai/functions/generate-pix-qrcode
+ * Used by: locai/agent (LangGraph) — chamado via tools/conversations
  */
 export async function triggerPixQrCodeGeneratedNotification(
   tenantId: string,
@@ -667,7 +607,7 @@ export async function triggerPixQrCodeGeneratedNotification(
 
 /**
  * Trigger notification when a follow-up is scheduled via AI
- * Used by: /api/ai/functions/follow-up-lead
+ * Used by: locai/agent (LangGraph) — chamado via tools/conversations
  */
 export async function triggerFollowUpScheduledNotification(
   tenantId: string,
@@ -733,183 +673,6 @@ export async function triggerFollowUpScheduledNotification(
   }
 }
 
-/**
- * Trigger notification when a reservation is modified via AI
- * Used by: /api/ai/functions/modify-reservation
- */
-export async function triggerReservationModifiedNotification(
-  tenantId: string,
-  reservationId: string,
-  data: {
-    propertyName?: string
-    clientName?: string
-    clientPhone?: string
-    originalCheckIn?: string
-    originalCheckOut?: string
-    newCheckIn?: string
-    newCheckOut?: string
-    originalGuests?: number
-    newGuests?: number
-    originalPrice?: number
-    newPrice?: number
-    changesDescription?: string
-  },
-  targetUserId: string,
-  targetUserEmail?: string
-): Promise<void> {
-  try {
-    const notificationService = NotificationServiceFactory.getInstance(tenantId)
 
-    const clientDisplay = data.clientName || data.clientPhone || 'Cliente'
-
-    // Build changes list
-    const changes: string[] = []
-    if (data.newCheckIn && data.newCheckIn !== data.originalCheckIn) {
-      changes.push(`Check-in: ${data.originalCheckIn} → ${data.newCheckIn}`)
-    }
-    if (data.newCheckOut && data.newCheckOut !== data.originalCheckOut) {
-      changes.push(`Check-out: ${data.originalCheckOut} → ${data.newCheckOut}`)
-    }
-    if (data.newGuests && data.newGuests !== data.originalGuests) {
-      changes.push(`Hóspedes: ${data.originalGuests} → ${data.newGuests}`)
-    }
-    if (data.newPrice && data.newPrice !== data.originalPrice) {
-      changes.push(`Valor: R$ ${data.originalPrice?.toLocaleString('pt-BR')} → R$ ${data.newPrice.toLocaleString('pt-BR')}`)
-    }
-
-    const changesText = changes.length > 0
-      ? changes.join('. ')
-      : data.changesDescription || 'Dados atualizados'
-
-    const message = `Reserva ${data.propertyName ? `de ${data.propertyName} ` : ''}para ${clientDisplay} foi modificada. ${changesText}.`
-
-    await notificationService.createNotification({
-      targetUserId,
-      targetUserName: targetUserEmail,
-      type: NotificationType.AGENDA_EVENT_UPDATED,
-      title: '✏️ Reserva Modificada',
-      message,
-      entityType: 'reservation',
-      entityId: reservationId,
-      entityData: data,
-      priority: NotificationPriority.MEDIUM,
-      channels: [NotificationChannel.DASHBOARD],
-      actions: [{
-        id: 'view_reservation',
-        label: 'Ver Reserva',
-        type: 'primary',
-        action: 'navigate',
-        config: {
-          url: `/dashboard/reservations/${reservationId}`
-        }
-      }],
-      metadata: {
-        source: 'ai_function',
-        triggerEvent: 'reservation_modified',
-        reservationId,
-        changesCount: changes.length
-      }
-    })
-
-    logger.info('[Notification Trigger] Reservation modified notification sent', {
-      tenantId: tenantId.substring(0, 8) + '***',
-      reservationId,
-      changesCount: changes.length,
-      targetUserId: targetUserId.substring(0, 8) + '***'
-    })
-  } catch (error) {
-    logger.error('[Notification Trigger] Failed to send reservation modified notification', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      tenantId: tenantId.substring(0, 8) + '***',
-      reservationId
-    })
-  }
-}
-
-/**
- * Trigger notification when a reservation is cancelled via AI
- * Used by: /api/ai/functions/cancel-reservation
- */
-export async function triggerReservationCancelledNotification(
-  tenantId: string,
-  reservationId: string,
-  data: {
-    propertyName?: string
-    clientName?: string
-    clientPhone?: string
-    checkIn?: string
-    checkOut?: string
-    totalPrice?: number
-    refundAmount?: number
-    cancelReason?: string
-    cancelledBy?: string
-  },
-  targetUserId: string,
-  targetUserEmail?: string
-): Promise<void> {
-  try {
-    const notificationService = NotificationServiceFactory.getInstance(tenantId)
-
-    const clientDisplay = data.clientName || data.clientPhone || 'Cliente'
-
-    let message = `Reserva ${data.propertyName ? `de ${data.propertyName} ` : ''}para ${clientDisplay} foi cancelada`
-
-    if (data.checkIn && data.checkOut) {
-      message += ` (${data.checkIn} - ${data.checkOut})`
-    }
-
-    if (data.refundAmount !== undefined && data.refundAmount > 0) {
-      message += `. Reembolso: R$ ${data.refundAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    } else if (data.totalPrice) {
-      message += `. Valor original: R$ ${data.totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    }
-
-    if (data.cancelReason) {
-      message += `. Motivo: ${data.cancelReason}`
-    }
-
-    message += '.'
-
-    await notificationService.createNotification({
-      targetUserId,
-      targetUserName: targetUserEmail,
-      type: NotificationType.AGENDA_EVENT_CANCELLED,
-      title: '❌ Reserva Cancelada',
-      message,
-      entityType: 'reservation',
-      entityId: reservationId,
-      entityData: data,
-      priority: NotificationPriority.HIGH,
-      channels: [NotificationChannel.DASHBOARD],
-      actions: [{
-        id: 'view_reservations',
-        label: 'Ver Reservas',
-        type: 'primary',
-        action: 'navigate',
-        config: {
-          url: '/dashboard/reservations'
-        }
-      }],
-      metadata: {
-        source: 'ai_function',
-        triggerEvent: 'reservation_cancelled',
-        reservationId,
-        hasRefund: (data.refundAmount ?? 0) > 0,
-        cancelledBy: data.cancelledBy || 'ai_agent'
-      }
-    })
-
-    logger.info('[Notification Trigger] Reservation cancelled notification sent', {
-      tenantId: tenantId.substring(0, 8) + '***',
-      reservationId,
-      refundAmount: data.refundAmount,
-      targetUserId: targetUserId.substring(0, 8) + '***'
-    })
-  } catch (error) {
-    logger.error('[Notification Trigger] Failed to send reservation cancelled notification', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      tenantId: tenantId.substring(0, 8) + '***',
-      reservationId
-    })
-  }
-}
+// triggerReservationModifiedNotification e triggerReservationCancelledNotification
+// foram removidas — sistema não modifica nem cancela reservas.

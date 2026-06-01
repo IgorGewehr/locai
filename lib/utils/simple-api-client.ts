@@ -2,7 +2,6 @@
 // Cliente API simplificado que bypass problemas de autenticação
 
 import { logger } from '@/lib/utils/logger';
-import { EmergencyAuth } from './emergency-auth';
 
 /**
  * Cliente API simplificado para contornar problemas de Firebase quota
@@ -14,10 +13,8 @@ export class SimpleApiClient {
    */
   static async fetch(url: string, options: RequestInit = {}): Promise<Response> {
     try {
-      // Use emergency headers se necessário
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-        ...EmergencyAuth.getEmergencyHeaders(),
         ...options.headers
       };
       

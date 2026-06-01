@@ -37,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import AirbnbQuickTips from './AirbnbQuickTips';
-import PropertyImportWizard from '@/components/organisms/PropertyImportWizard/PropertyImportWizard';
+// PropertyImportWizard removido — sistema não importa mais do Airbnb.
 import { logger } from '@/lib/utils/logger';
 
 interface Step1PropertySetupProps {
@@ -412,15 +412,7 @@ export default function Step1PropertySetup({
         </DialogContent>
       </Dialog>
 
-      {/* ✅ Import Wizard (Airbnb) - Improved UX */}
-      <PropertyImportWizard
-        open={showImportDialog}
-        onClose={() => {
-          setShowImportDialog(false);
-          setMode('select');
-        }}
-        onSuccess={handleImportSuccess}
-      />
+      {/* PropertyImportWizard removido — onboarding agora é só cadastro manual. */}
     </>
   );
 }

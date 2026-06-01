@@ -1,12 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { ApiClient } from '@/lib/utils/api-client';
 import { useTenant } from './TenantContext';
 
 interface WhatsAppStatus {
   connected: boolean;
-  status: 'disconnected' | 'connecting' | 'connected' | 'error' | 'qr';
+  status: 'disconnected' | 'connecting' | 'connected' | 'error' | 'qr' | 'microservice_mode';
   phoneNumber?: string;
   businessName?: string;
   qrCode?: string;
@@ -143,11 +143,11 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
     };
   }, [pollTimeoutId]);
 
-  const contextValue: WhatsAppStatusContextType = {
+  const contextValue: WhatsAppStatusContextType = useMemo(() => ({
     status,
     refreshStatus,
     isRefreshing
-  };
+  }), [status, refreshStatus, isRefreshing]);
 
   return (
     <WhatsAppStatusContext.Provider value={contextValue}>

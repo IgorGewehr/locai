@@ -82,13 +82,13 @@ export async function sendWhatsAppMedia(
       tenantId: resolvedTenantId.substring(0, 8) + '***'
     });
 
-    // Use session manager directly for media sending
-    const { whatsappSessionManager } = await import('./session-manager');
-    
-    const success = await whatsappSessionManager.sendMessage(
+    // ÚNICO MÉTODO: Use microservice Baileys (DigitalOcean) para enviar mídia
+    logger.info('🚀 Using WhatsApp Microservice with Baileys (DigitalOcean) para mídia');
+
+    const success = await whatsappMicroserviceClient.sendMessage(
       resolvedTenantId,
       phoneNumber,
-      caption || '',
+      caption ?? '',
       mediaUrl
     );
 
@@ -211,6 +211,8 @@ export async function sendWhatsAppMessageWithTenantResolution(
 ): Promise<boolean> {
   try {
     // Try to resolve tenant from phone number
+    // TODO: migrar a resolução de tenant para o microsserviço — esta é hoje a
+    // única fonte dessa resolução (Baileys local não existe no Docker/Windows).
     const { whatsappSessionManager } = await import('./session-manager');
     const tenantId = await whatsappSessionManager.getTenantByPhoneNumber(phoneNumber);
     

@@ -1,65 +1,100 @@
-"""HMAC request authentication — shared secret with locai Next.js."""
+"""HMAC signing + verification.
+
+Two directions:
+  - OUTBOUND: sign calls the agent makes to Next.js REST tools.
+  - INBOUND:  verify the webhook payload Next.js sends to /process.
+
+Scheme:
+    message    = f"{timestamp_ms}.{tenant_id}.{raw_body}"
+    signature  = hex(HMAC-SHA256(AGENT_SHARED_SECRET, message))
+
+Tenant header on the Locai side is `x-tenant-id` (mirrors locai's multi-tenant
+model where `tenants/{tenantId}` scopes everything). On saas-erp/agent the same
+slot is `x-business-id`. The shape is identical otherwise.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import hmac
-import json
+import threading
 import time
+from hashlib import sha256
 
-from fastapi import HTTPException, Request
+from fastapi import Header, HTTPException, Request
 
 from .config import get_settings
 
+MAX_SKEW_MS = 5 * 60 * 1000
+NONCE_TTL_MS = MAX_SKEW_MS + 60 * 1000
+NONCE_MAX_ENTRIES = 10_000
 
-def _sign(secret: str, timestamp: str, body: bytes) -> str:
-    """Sign `timestamp.body` with HMAC-SHA256.
 
-    Including the timestamp in the signed payload prevents replay attacks:
-    a captured (sig, body) pair is only valid with its original timestamp,
-    which expires after 60 s.
+class _NonceCache:
+    def __init__(self) -> None:
+        self._store: dict[str, int] = {}
+        self._lock = threading.Lock()
+
+    def claim(self, key: str, now_ms: int) -> bool:
+        with self._lock:
+            existing = self._store.get(key)
+            if existing is not None and existing > now_ms:
+                return False
+            self._store[key] = now_ms + NONCE_TTL_MS
+            if len(self._store) > NONCE_MAX_ENTRIES:
+                self._evict(now_ms)
+            return True
+
+    def _evict(self, now_ms: int) -> None:
+        fresh = {k: v for k, v in self._store.items() if v > now_ms}
+        if len(fresh) > NONCE_MAX_ENTRIES:
+            sorted_items = sorted(fresh.items(), key=lambda kv: kv[1])
+            drop = max(1, len(sorted_items) // 5)
+            for k, _ in sorted_items[:drop]:
+                fresh.pop(k, None)
+        self._store = fresh
+
+
+_nonce_cache = _NonceCache()
+
+
+def sign_payload(tenant_id: str, raw_body: str, timestamp_ms: int | None = None) -> tuple[str, str]:
+    """Return (signature_hex, timestamp_ms_str) to send as request headers."""
+    secret = get_settings().agent_shared_secret
+    ts = timestamp_ms or int(time.time() * 1000)
+    message = f"{ts}.{tenant_id}.{raw_body}".encode("utf-8")
+    sig = hmac.new(secret.encode("utf-8"), message, sha256).hexdigest()
+    return sig, str(ts)
+
+
+async def verify_inbound(
+    request: Request,
+    x_agent_signature: str = Header(...),
+    x_agent_timestamp: str = Header(...),
+    x_tenant_id: str = Header(...),
+) -> tuple[str, str]:
+    """FastAPI dependency — verifies HMAC on incoming requests from Next.js.
+
+    Returns (tenant_id, raw_body). Raises 401 on failure or 409 on replay.
     """
-    payload = timestamp.encode() + b"." + body
-    return hmac.new(secret.encode(), payload, digestmod=hashlib.sha256).hexdigest()
-
-
-async def verify_request(request: Request) -> tuple[str, bytes]:
-    """Verify HMAC signature or API-key bearer token.
-
-    Returns (tenant_id, raw_body) on success, raises HTTPException on failure.
-    """
-    s = get_settings()
-    raw_body = await request.body()
-
-    # --- API key bearer (simple path for dev/testing) ---
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header[7:]
-        # Timing-safe comparison — prevents timing attacks on the secret
-        if hmac.compare_digest(token, s.agent_shared_secret):
-            body_json = json.loads(raw_body) if raw_body else {}
-            tenant_id = body_json.get("tenant_id", "")
-            return tenant_id, raw_body
-
-    # --- HMAC signature ---
-    sig_header = request.headers.get("X-Agent-Signature", "")
-    ts_header = request.headers.get("X-Agent-Timestamp", "")
-
-    if not sig_header or not ts_header:
-        raise HTTPException(status_code=401, detail="Missing auth headers")
-
-    # Reject stale requests (>60 s)
     try:
-        ts = int(ts_header)
-        if abs(time.time() * 1000 - ts) > 60_000:
-            raise HTTPException(status_code=401, detail="Request timestamp expired")
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid timestamp")
+        ts = int(x_agent_timestamp)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail="Invalid timestamp header") from e
+    now_ms = int(time.time() * 1000)
+    if abs(now_ms - ts) > MAX_SKEW_MS:
+        raise HTTPException(status_code=401, detail="Timestamp skew exceeds window")
 
-    expected = _sign(s.agent_shared_secret, ts_header, raw_body)
-    if not hmac.compare_digest(expected, sig_header):
+    raw_body = (await request.body()).decode("utf-8")
+    secret = get_settings().agent_shared_secret
+    message = f"{ts}.{x_tenant_id}.{raw_body}".encode("utf-8")
+    expected = hmac.new(secret.encode("utf-8"), message, sha256).hexdigest()
+
+    if not hmac.compare_digest(expected, x_agent_signature):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
-    body_json = json.loads(raw_body) if raw_body else {}
-    tenant_id = body_json.get("tenant_id", "")
-    return tenant_id, raw_body
+    nonce_key = hashlib.sha256(x_agent_signature.encode("utf-8")).hexdigest()
+    if not _nonce_cache.claim(nonce_key, now_ms):
+        raise HTTPException(status_code=409, detail="Replay detected (nonce reuse)")
+
+    return x_tenant_id, raw_body

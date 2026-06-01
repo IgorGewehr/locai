@@ -67,8 +67,9 @@ logs/
 .env.development.local
 .env.test.local
 .env.production.local
-.env.production
-.env.production.local
+# IMPORTANT: .env.production is a template with placeholder values
+# Real production values should ONLY be set in Vercel UI
+# If you need to override locally, use .env.production.local (already in .gitignore)
 
 # Firebase credentials (NEVER COMMIT)
 *-firebase-adminsdk-*.json
@@ -88,6 +89,12 @@ locai-*-firebase-adminsdk-*.json
 # Claude Code
 .claude/
 
-# python
+# Python (locai/agent — LangGraph service)
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

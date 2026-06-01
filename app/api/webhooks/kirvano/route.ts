@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { SubscriptionService } from '@/lib/services/subscription-service';
 import { KirvanoWebhookEvent } from '@/lib/types/subscription';
 import { logger } from '@/lib/utils/logger';
@@ -7,12 +8,61 @@ import { logger } from '@/lib/utils/logger';
 export const runtime = 'nodejs';
 
 /**
+ * Verifica a assinatura HMAC-SHA256 do webhook da Kirvano.
+ *
+ * Falha fechado: rejeita se o secret não estiver configurado, se a assinatura
+ * faltar, ou se ela não bater com o corpo CRU da requisição.
+ *
+ * @returns true se a assinatura for válida; false caso contrário.
+ */
+function verifyKirvanoSignature(request: NextRequest, rawBody: string): boolean {
+  const secret = process.env.KIRVANO_WEBHOOK_SECRET;
+  if (!secret) {
+    logger.error('❌ [Kirvano Webhook] KIRVANO_WEBHOOK_SECRET não configurado — rejeitando');
+    return false;
+  }
+
+  // TODO: confirmar nome do header com a documentação Kirvano
+  const signature =
+    request.headers.get('x-kirvano-signature') ||
+    request.headers.get('x-webhook-signature');
+
+  if (!signature) {
+    logger.error('❌ [Kirvano Webhook] Assinatura ausente no header — rejeitando');
+    return false;
+  }
+
+  // Assinatura esperada = HMAC-SHA256(corpo cru) em hex.
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(rawBody, 'utf8')
+    .digest('hex');
+
+  // A Kirvano pode enviar a assinatura com prefixo "sha256=" — normaliza.
+  const received = signature.startsWith('sha256=') ? signature.slice(7) : signature;
+
+  // timingSafeEqual lança se os buffers tiverem tamanhos diferentes — falha fechado.
+  try {
+    const ok = crypto.timingSafeEqual(
+      Buffer.from(received, 'hex'),
+      Buffer.from(expected, 'hex')
+    );
+    if (!ok) {
+      logger.error('❌ [Kirvano Webhook] Assinatura inválida — rejeitando');
+    }
+    return ok;
+  } catch {
+    logger.error('❌ [Kirvano Webhook] Assinatura malformada — rejeitando');
+    return false;
+  }
+}
+
+/**
  * Webhook endpoint para receber notificações do Kirvano
  * Rota: POST /api/webhooks/kirvano
  */
 export async function POST(request: NextRequest) {
   try {
-    // IMPORTANTE: Webhook não precisa de autenticação
     logger.info('🔔 [Kirvano Webhook] Requisição recebida', {
       url: request.url,
       method: request.method,
@@ -21,24 +71,39 @@ export async function POST(request: NextRequest) {
       contentType: request.headers.get('content-type'),
       timestamp: new Date().toISOString()
     });
-    
-    // Extrair body da requisição
+
+    // Ler o corpo CRU primeiro para validar a assinatura HMAC.
+    const rawBody = await request.text();
+
+    // 🔐 Verificação de assinatura — falha fechado (401) se inválida/ausente.
+    if (!verifyKirvanoSignature(request, rawBody)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Não autorizado',
+          details: 'Assinatura do webhook inválida ou ausente'
+        },
+        { status: 401 }
+      );
+    }
+
+    // Extrair body da requisição (parse do corpo cru já verificado)
     let body: KirvanoWebhookEvent;
-    
+
     try {
-      body = await request.json();
+      body = JSON.parse(rawBody);
     } catch (parseError) {
       logger.error('❌ [Kirvano Webhook] Erro ao parsear JSON', parseError as Error);
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'JSON inválido',
           details: 'Não foi possível parsear o body da requisição'
         },
         { status: 400 }
       );
     }
-    
+
     // Validar estrutura básica do webhook
     if (!body.event || !body.sale_id || !body.customer?.email) {
       logger.error('❌ [Kirvano Webhook] Payload inválido', { body });

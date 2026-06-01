@@ -3,6 +3,25 @@ import { logger } from '@/lib/utils/logger';
 import { WhatsAppMessage, WhatsAppTemplate, WhatsAppMediaResponse, WhatsAppMediaDetails, WhatsAppError } from '@/lib/types/whatsapp';
 import { MicroserviceAuthAdapter } from './microservice-auth-adapter';
 
+// As credenciais do microservice (Docker, Windows) vêm exclusivamente por env.
+// A leitura é feita no momento do uso (não no carregamento do módulo) para
+// não quebrar build/import quando as envs ainda não estão presentes.
+function getMicroserviceUrl(): string {
+  const url = process.env.WHATSAPP_MICROSERVICE_URL;
+  if (!url) {
+    throw new Error('WHATSAPP_MICROSERVICE_URL não configurada');
+  }
+  return url;
+}
+
+function getMicroserviceApiKey(): string {
+  const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
+  if (!apiKey) {
+    throw new Error('WHATSAPP_MICROSERVICE_API_KEY não configurada');
+  }
+  return apiKey;
+}
+
 /**
  * Adapter para integrar ExternalWhatsAppClient com a interface existente do LocAI
  * Mantém compatibilidade com o código atual enquanto usa o microserviço externo
@@ -16,8 +35,8 @@ export class ExternalClientAdapter {
     
     // Configurar cliente externo
     const config = {
-      baseUrl: process.env.WHATSAPP_MICROSERVICE_URL || 'http://localhost:3000',
-      apiKey: process.env.WHATSAPP_MICROSERVICE_API_KEY || 'default-key',
+      baseUrl: getMicroserviceUrl(),
+      apiKey: getMicroserviceApiKey(),
       tenantId: tenantId,
       timeout: 30000
     };
@@ -154,12 +173,14 @@ export class ExternalClientAdapter {
    */
   async getConnectionStatus(): Promise<{ connected: boolean; phone?: string; name?: string; status?: string; qrCode?: string }> {
     try {
+      const microserviceUrl = getMicroserviceUrl();
+
       logger.info('🔍 [External Adapter] Getting session status from microservice', {
         tenantId: this.tenantId.substring(0, 8) + '***',
-        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
+        microserviceUrl
       });
-      
-      const url = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${this.tenantId}/status`;
+
+      const url = `${microserviceUrl}/api/v1/sessions/${this.tenantId}/status`;
       
       const response = await MicroserviceAuthAdapter.fetch(url, {
         method: 'GET'
@@ -211,13 +232,15 @@ export class ExternalClientAdapter {
    */
   async initializeSession(): Promise<{ qrCode?: string; connected: boolean }> {
     try {
+      const microserviceUrl = getMicroserviceUrl();
+
       logger.info('🔄 [External Adapter] Starting session initialization via microservice', {
         tenantId: this.tenantId,
-        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL,
+        microserviceUrl,
         step: 'initialize_session'
       });
-      
-      const url = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${this.tenantId}/start`;
+
+      const url = `${microserviceUrl}/api/v1/sessions/${this.tenantId}/start`;
       
       const response = await MicroserviceAuthAdapter.fetch(url, {
         method: 'POST'

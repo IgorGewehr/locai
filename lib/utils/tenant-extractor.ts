@@ -2,7 +2,7 @@
 // Utilitário para extrair tenantId dinamicamente do usuário autenticado
 
 import { NextRequest } from 'next/server';
-import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { validateFirebaseAuth, requireAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { TenantError, APIError } from '@/lib/utils/custom-error';
 
@@ -18,56 +18,24 @@ export interface TenantContext {
  */
 export async function extractTenantFromAuth(request: NextRequest): Promise<TenantContext | null> {
   try {
-    // 1. Tentar extrair do header Authorization
-    const authHeader = request.headers.get('authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      const payload = await validateFirebaseAuth(token);
-      
-      if (payload) {
-        // Log reduzido - apenas em debug
-        if (process.env.LOG_LEVEL === 'debug') {
-          logger.info('✅ [TenantExtractor] Auth header', {
-            userId: payload.sub?.substring(0, 8) + '***'
-          });
-        }
+    // Validar token Firebase diretamente a partir do request
+    // (validateFirebaseAuth lê o header Authorization/X-Firebase-Token internamente)
+    const authContext = await validateFirebaseAuth(request);
 
-        return {
-          tenantId: payload.tenantId,
-          userId: payload.sub,
-          userEmail: payload.email,
-          userRole: payload.role
-        };
+    if (authContext.authenticated && authContext.tenantId && authContext.userId) {
+      // Log reduzido - apenas em debug
+      if (process.env.LOG_LEVEL === 'debug') {
+        logger.info('✅ [TenantExtractor] Auth validada', {
+          userId: authContext.userId.substring(0, 8) + '***'
+        });
       }
-    }
 
-    // 2. Tentar extrair do cookie (sessão web)
-    const cookieHeader = request.headers.get('cookie');
-    if (cookieHeader) {
-      const authCookie = cookieHeader
-        .split('; ')
-        .find(cookie => cookie.startsWith('auth-token='));
-      
-      if (authCookie) {
-        const token = authCookie.split('=')[1];
-        const payload = await validateFirebaseAuth(token);
-        
-        if (payload) {
-          // Log reduzido - apenas em debug
-          if (process.env.LOG_LEVEL === 'debug') {
-            logger.info('✅ [TenantExtractor] Cookie auth', {
-              userId: payload.sub?.substring(0, 8) + '***'
-            });
-          }
-
-          return {
-            tenantId: payload.tenantId,
-            userId: payload.sub,
-            userEmail: payload.email,
-            userRole: payload.role
-          };
-        }
-      }
+      return {
+        tenantId: authContext.tenantId,
+        userId: authContext.userId,
+        userEmail: authContext.email || '',
+        userRole: authContext.role || 'user'
+      };
     }
 
     logger.warn('⚠️ [TenantExtractor] Nenhum token válido encontrado');
@@ -154,20 +122,26 @@ export async function requireAuthAndTenant(request: NextRequest): Promise<
   { tenantContext: TenantContext; authResult: any } | { error: any }
 > {
   try {
-    // 1. Verificar autenticação
-    const authResult = await authService.requireAuth(request);
-    
-    // Se retornou NextResponse, é um erro de auth
-    if (authResult instanceof Response) {
-      return { error: authResult };
+    // 1. Verificar autenticação (lança erro se não autenticado)
+    const authResult = await requireAuth(request);
+
+    // Garantir que o tenantId foi resolvido
+    if (!authResult.tenantId || !authResult.userId) {
+      return {
+        error: {
+          success: false,
+          error: 'Tenant não encontrado para o usuário autenticado',
+          code: 'TENANT_NOT_FOUND'
+        }
+      };
     }
 
     // 2. Extrair contexto do tenant
     const tenantContext: TenantContext = {
-      tenantId: authResult.user.tenantId,
-      userId: authResult.user.id,
-      userEmail: authResult.user.email,
-      userRole: authResult.user.role
+      tenantId: authResult.tenantId,
+      userId: authResult.userId,
+      userEmail: authResult.email || '',
+      userRole: authResult.role || 'user'
     };
 
     if (process.env.LOG_LEVEL === 'debug') {

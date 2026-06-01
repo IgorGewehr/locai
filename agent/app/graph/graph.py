@@ -1,273 +1,265 @@
-"""LangGraph assembly and run_agent entrypoint."""
+"""LangGraph assembly + public `run_agent` entrypoint.
+
+Topology (same shape as saas-erp/agent for parity):
+
+      START
+        │
+        ▼
+     router
+        │
+        ▼
+     planner ◄──────────────────────────┐
+        │                               │
+        ├──(tool_calls)─▶ executor ─────┤
+        │                  │            │
+        │            (if operator+      │
+        │             destructive)      │
+        │                  ▼            │
+        │             reflection ───────┘
+        │
+        ├──(customer-mode draft) ─▶ responder ─▶ END
+        │
+        └──(operator/analyst draft) ─▶ skip_responder ─▶ END
+"""
 
 from __future__ import annotations
 
-import asyncio
 import time
 import uuid
-from typing import Any
+from typing import Annotated
 
-import structlog
-from langchain_core.messages import AIMessage, HumanMessage
-from langgraph.graph import END, StateGraph
+from langchain_core.messages import BaseMessage, HumanMessage
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
 
 from ..config import get_settings
-from ..observability import get_langsmith_callbacks
-from .nodes import executor_node, make_operator_planner_node, planner_node, router_node
+from ..logging_config import get_logger
+from ..observability import build_run_config
+from ..schemas import ProcessRequest
+from .nodes import (
+    executor_node,
+    executor_routes_to,
+    planner_node,
+    planner_routes_to,
+    reflection_node,
+    responder_node,
+    router_node,
+    skip_responder_to_end,
+)
 from .state import AgentRunResult, AgentState
 
-log = structlog.get_logger()
+log = get_logger("graph")
 
-# Cost per 1M tokens (USD) — update when models change
-_COST_TABLE: dict[str, tuple[float, float]] = {  # (input, output) per 1M tokens
-    "gpt-4o-mini": (0.15, 0.60),
-    "gpt-4o": (2.50, 10.00),
-    "gpt-4.1-mini": (0.40, 1.60),
-    "gpt-4.1-nano": (0.10, 0.40),
-    "claude-sonnet-4-5-20251022": (3.00, 15.00),
-    "claude-haiku-3-5-20241022": (0.80, 4.00),
-}
+_graph = None
 
 
-def _estimate_cost(model: str, tokens_in: int, tokens_out: int) -> float:
-    rates = _COST_TABLE.get(model, (0.15, 0.60))  # default to gpt-4o-mini
-    return (tokens_in * rates[0] + tokens_out * rates[1]) / 1_000_000
+def _build_graph():
+    from typing import TypedDict
 
+    class _State(TypedDict, total=False):
+        run_id: str
+        tenant_id: str
+        conversation_id: str
+        message_id: str
+        use_case: str
+        tenant_context: dict
+        contact: dict
+        messages: Annotated[list[BaseMessage], add_messages]
+        intent: str | None
+        iterations: int
+        final_response: str | None
+        error: str | None
+        direct_send_done: bool
+        needs_reflection: bool
+        reasoning: list[dict]
+        node_traces: list[dict]
+        tool_calls_log: list[dict]
+        total_tokens_in: int
+        total_tokens_out: int
 
-def _has_tool_calls(state: AgentState) -> str:
-    messages = state.get("messages", [])
-    last = messages[-1] if messages else None
-    if last and getattr(last, "tool_calls", None):
-        return "executor"
-    return "end"
-
-
-def _should_continue(state: AgentState) -> str:
-    if state.get("iterations", 0) >= get_settings().agent_max_iterations:
-        return "end"
-    if state.get("final_response"):
-        return "end"
-    return "planner"
-
-
-def build_graph() -> Any:
-    g = StateGraph(AgentState)
+    g = StateGraph(_State)
     g.add_node("router", router_node)
     g.add_node("planner", planner_node)
     g.add_node("executor", executor_node)
-    g.set_entry_point("router")
+    g.add_node("reflection", reflection_node)
+    g.add_node("responder", responder_node)
+    g.add_node("skip_responder", skip_responder_to_end)
+
+    g.add_edge(START, "router")
     g.add_edge("router", "planner")
-    g.add_conditional_edges("planner", _has_tool_calls, {"executor": "executor", "end": END})
-    g.add_conditional_edges("executor", _should_continue, {"planner": "planner", "end": END})
+    g.add_conditional_edges(
+        "planner",
+        planner_routes_to,
+        {
+            "executor": "executor",
+            "responder": "responder",
+            "skip_responder": "skip_responder",
+        },
+    )
+    g.add_conditional_edges(
+        "executor",
+        executor_routes_to,
+        {"reflection": "reflection", "planner": "planner"},
+    )
+    g.add_edge("reflection", "planner")
+    g.add_edge("responder", END)
+    g.add_edge("skip_responder", END)
+
     return g.compile()
 
 
-def build_operator_graph(system_prompt: str, read_only: bool) -> Any:
-    """Operator-console graph: planner <-> executor loop (no client router).
-
-    The planner uses an operator system prompt and, in read-only ("analista")
-    mode, is bound only to read tools so it physically cannot mutate.
-    """
-    g = StateGraph(AgentState)
-    g.add_node("planner", make_operator_planner_node(system_prompt, read_only))
-    g.add_node("executor", executor_node)
-    g.set_entry_point("planner")
-    g.add_conditional_edges("planner", _has_tool_calls, {"executor": "executor", "end": END})
-    g.add_conditional_edges("executor", _should_continue, {"planner": "planner", "end": END})
-    return g.compile()
+def get_graph():
+    global _graph
+    if _graph is None:
+        _graph = _build_graph()
+    return _graph
 
 
-# One compiled graph per worker process — thread-safe (uvicorn forks workers)
-_GRAPH = build_graph()
-
-# Operator console graphs (one per mode), compiled once per worker.
-from .prompts import OPERATOR_ANALISTA_SYSTEM, OPERATOR_OPERADOR_SYSTEM  # noqa: E402
-
-_OPERATOR_GRAPHS: dict[str, Any] = {
-    "analista": build_operator_graph(OPERATOR_ANALISTA_SYSTEM, read_only=True),
-    "operador": build_operator_graph(OPERATOR_OPERADOR_SYSTEM, read_only=False),
-}
+# ─── Public API ────────────────────────────────────────────────────────────
 
 
-async def run_agent(
-    *,
-    tenant_id: str,
-    conversation_id: str,
-    message_id: str,
-    message: str,
-    history: list[dict[str, str]],
-    contact: dict[str, str],
-) -> AgentRunResult:
-    s = get_settings()
-    run_id = str(uuid.uuid4())
+async def run_agent(*, run_id: str, tenant_id: str, req: ProcessRequest) -> AgentRunResult:
+    settings = get_settings()
+    model = settings.openai_model_default
     t0 = time.time()
 
-    lc_messages = []
-    for h in history[-20:]:
-        role = h.get("role", "")
-        content = h.get("content", "")
-        if role == "assistant":
-            lc_messages.append(AIMessage(content=content))
-        else:
-            lc_messages.append(HumanMessage(content=content))
+    from ..budget import check_budget
+    allowed, usd_today, cap = await check_budget(tenant_id)
+    if not allowed:
+        log.warning("budget.exceeded", run_id=run_id, tenant_id=tenant_id,
+                    usd_today=usd_today, cap=cap)
+        return AgentRunResult(
+            run_id=run_id,
+            tenant_id=tenant_id,
+            conversation_id=req.conversation_id,
+            message_id=req.message_id,
+            user_message=req.message,
+            final_response=None,
+            intent="budget_exceeded",
+            iterations=0,
+            status="skipped",
+            error=f"Daily budget exceeded: ${usd_today:.2f} / ${cap:.2f}",
+            total_latency_ms=0,
+            model=model,
+        )
 
-    lc_messages.append(HumanMessage(content=message))
+    initial_messages: list[BaseMessage] = []
+    for item in req.history[-10:]:
+        role = item.get("role")
+        content = item.get("content", "")
+        if role == "user":
+            initial_messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            from langchain_core.messages import AIMessage
+            initial_messages.append(AIMessage(content=content))
+    initial_messages.append(HumanMessage(content=req.message))
 
-    initial_state: AgentState = {
+    state: AgentState = {
         "run_id": run_id,
         "tenant_id": tenant_id,
-        "conversation_id": conversation_id,
-        "message_id": message_id,
-        "contact": contact,
-        "messages": lc_messages,
-        "intent": None,
+        "conversation_id": req.conversation_id,
+        "message_id": req.message_id,
+        "use_case": req.use_case,
+        "tenant_context": {
+            "name": req.tenant_name,
+            "description": req.tenant_description,
+            "tone": req.tone,
+            "model": model,
+            "current_date": req.current_date or "",
+            "address": req.tenant_address or {},
+            "working_hours": req.working_hours or [],
+            "visit_settings": req.visit_settings or {},
+            "properties_summary": req.properties_summary or [],
+            "client_memory": req.client_memory or "",
+            "policies": req.policies or {},
+            "operator": {
+                "user_id": req.operator_user_id,
+                "user_name": req.operator_user_name,
+                "user_role": req.operator_user_role,
+                "autonomous": bool(req.operator_autonomous),
+            } if req.use_case in ("operator", "analyst") else {},
+        },
+        "contact": {
+            "name": req.contact_name,
+            "phone": req.contact_phone,
+            "channel": req.channel,
+            "recipient_id": req.recipient_id,
+        },
+        "messages": initial_messages,
         "iterations": 0,
-        "final_response": None,
-        "media_urls": [],
-        "error": None,
+        "needs_reflection": False,
+        "direct_send_done": False,
+        "reasoning": [],
         "node_traces": [],
         "tool_calls_log": [],
         "total_tokens_in": 0,
         "total_tokens_out": 0,
     }
 
+    graph = get_graph()
+    run_config = build_run_config(
+        run_id=run_id,
+        tenant_id=tenant_id,
+        conversation_id=req.conversation_id,
+        message_id=req.message_id,
+        use_case=req.use_case or "imobiliario",
+        channel=req.channel or "whatsapp",
+        model=model,
+    )
+
     try:
-        # Hard timeout — prevents workers from hanging on slow LLM calls
-        config: dict = {
-            "run_name": f"locai.{conversation_id}",
-            "tags": [f"tenant:{tenant_id}"],
-        }
-        ls_callbacks = get_langsmith_callbacks()
-        if ls_callbacks:
-            config["callbacks"] = ls_callbacks
-
-        final_state = await asyncio.wait_for(
-            _GRAPH.ainvoke(initial_state, config=config),
-            timeout=float(s.agent_request_timeout_s),
-        )
-
-        final_response = final_state.get("final_response")
-        # Fallback: extract last AI message if planner never produced a plain response
-        if not final_response:
-            for m in reversed(final_state.get("messages", [])):
-                content = getattr(m, "content", None)
-                if isinstance(content, str) and content.strip() and not getattr(m, "tool_calls", None):
-                    final_response = content
-                    break
-
-        tok_in = final_state.get("total_tokens_in", 0)
-        tok_out = final_state.get("total_tokens_out", 0)
-
+        final = await graph.ainvoke(state, run_config)
+    except Exception as e:
+        latency = int((time.time() - t0) * 1000)
+        log.error("graph.invoke_failed", run_id=run_id, error=str(e), latency_ms=latency)
         return AgentRunResult(
             run_id=run_id,
             tenant_id=tenant_id,
-            conversation_id=conversation_id,
-            message_id=message_id,
-            user_message=message,
-            final_response=final_response,
-            media_urls=final_state.get("media_urls", []),
-            intent=final_state.get("intent"),
-            iterations=final_state.get("iterations", 0),
-            status="success",
-            error=None,
-            node_traces=final_state.get("node_traces", []),
-            tool_calls=final_state.get("tool_calls_log", []),
-            total_tokens_in=tok_in,
-            total_tokens_out=tok_out,
-            total_latency_ms=int((time.time() - t0) * 1000),
-            cost_usd=_estimate_cost(s.model_main, tok_in, tok_out),
-        )
-
-    except asyncio.TimeoutError:
-        log.error("agent.timeout", run_id=run_id, timeout_s=s.agent_request_timeout_s)
-        return AgentRunResult(
-            run_id=run_id,
-            tenant_id=tenant_id,
-            conversation_id=conversation_id,
-            message_id=message_id,
-            user_message=message,
+            conversation_id=req.conversation_id,
+            message_id=req.message_id,
+            user_message=req.message,
             final_response=None,
-            media_urls=[],
             intent=None,
             iterations=0,
             status="error",
-            error=f"Agent timed out after {s.agent_request_timeout_s}s",
-            total_latency_ms=int((time.time() - t0) * 1000),
+            error=str(e),
+            total_latency_ms=latency,
+            model=model,
         )
 
-    except Exception as exc:
-        log.error("agent.run_error", run_id=run_id, error=str(exc))
-        return AgentRunResult(
-            run_id=run_id,
-            tenant_id=tenant_id,
-            conversation_id=conversation_id,
-            message_id=message_id,
-            user_message=message,
-            final_response=None,
-            media_urls=[],
-            intent=None,
-            iterations=0,
-            status="error",
-            error=str(exc),
-            total_latency_ms=int((time.time() - t0) * 1000),
-        )
+    latency = int((time.time() - t0) * 1000)
+    tokens_in = final.get("total_tokens_in", 0)
+    tokens_out = final.get("total_tokens_out", 0)
+    from .nodes import PRICING
+    cost = 0.0
+    if model in PRICING:
+        in_p, out_p = PRICING[model]
+        cost = round((tokens_in * in_p + tokens_out * out_p) / 1_000_000, 6)
 
+    # Report consumption so the daily cap can actually fire. Best-effort: a
+    # failure here is logged inside record_budget and must not fail the run.
+    from ..budget import record_budget
+    recorded = await record_budget(tenant_id, cost_usd=cost, tokens=tokens_in + tokens_out)
+    if not recorded:
+        log.warning("budget.record_unconfirmed", run_id=run_id, tenant_id=tenant_id,
+                    cost_usd=cost)
 
-async def run_operator(*, tenant_id: str, message: str, mode: str) -> str:
-    """Operator-console flow. Returns a plain-text reply.
-
-    mode="analista" -> read-only (cannot mutate).
-    mode="operador" -> may use write tools (cautiously).
-    """
-    s = get_settings()
-    norm_mode = mode if mode in _OPERATOR_GRAPHS else "analista"
-    graph = _OPERATOR_GRAPHS[norm_mode]
-    run_id = str(uuid.uuid4())
-
-    initial_state: AgentState = {
-        "run_id": run_id,
-        "tenant_id": tenant_id,
-        "conversation_id": f"operator:{run_id}",
-        "message_id": run_id,
-        "contact": {},
-        "messages": [HumanMessage(content=message)],
-        "intent": "operator",
-        "iterations": 0,
-        "final_response": None,
-        "media_urls": [],
-        "error": None,
-        "node_traces": [],
-        "tool_calls_log": [],
-        "total_tokens_in": 0,
-        "total_tokens_out": 0,
-    }
-
-    try:
-        op_config: dict = {
-            "run_name": f"locai.operator.{norm_mode}",
-            "tags": [f"tenant:{tenant_id}"],
-        }
-        ls_cbs = get_langsmith_callbacks()
-        if ls_cbs:
-            op_config["callbacks"] = ls_cbs
-
-        final_state = await asyncio.wait_for(
-            graph.ainvoke(initial_state, config=op_config),
-            timeout=float(s.agent_request_timeout_s),
-        )
-        reply = final_state.get("final_response")
-        if reply:
-            return reply
-        # Fall back to the last AI message content if the loop ended without a plain reply.
-        for m in reversed(final_state.get("messages", [])):
-            content = getattr(m, "content", None)
-            if isinstance(content, str) and content.strip() and not getattr(m, "tool_calls", None):
-                return content
-        return "Não consegui produzir uma resposta. Tente reformular a solicitação."
-
-    except asyncio.TimeoutError:
-        log.error("operator.timeout", run_id=run_id, timeout_s=s.agent_request_timeout_s)
-        return "A solicitação demorou demais para ser processada. Tente novamente."
-    except Exception as exc:
-        log.error("operator.run_error", run_id=run_id, error=str(exc))
-        return "Ocorreu um erro ao processar a solicitação."
+    return AgentRunResult(
+        run_id=run_id,
+        tenant_id=tenant_id,
+        conversation_id=req.conversation_id,
+        message_id=req.message_id,
+        user_message=req.message,
+        final_response=final.get("final_response"),
+        intent=final.get("intent"),
+        iterations=final.get("iterations", 0),
+        status="success" if (final.get("final_response") or final.get("direct_send_done")) else "error",
+        error=final.get("error"),
+        node_traces=final.get("node_traces", []),
+        tool_calls=final.get("tool_calls_log", []),
+        total_tokens_in=tokens_in,
+        total_tokens_out=tokens_out,
+        total_latency_ms=latency,
+        cost_usd=cost,
+        model=model,
+    )

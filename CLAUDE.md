@@ -21,7 +21,10 @@ npm run type-check         # TypeScript validation
 
 ## Project Overview
 
-**Locai** - Enterprise-grade real estate AI system with Sofia AI Agent integration.
+**Locai** — Vitrine + concierge para imobiliárias de temporada. O sistema NÃO
+gerencia reservas. Quando um cliente quer fechar, o agent envia o link do
+Airbnb e a reserva acontece lá. O agendamento interno cobre apenas visitas
+presenciais, retirada de chave e suporte/manutenção no apto.
 
 ### Tech Stack
 
@@ -31,19 +34,22 @@ npm run type-check         # TypeScript validation
 | **UI** | Material-UI v5.15 + Emotion |
 | **Database** | Firebase Firestore v10.7 |
 | **Auth** | Firebase Auth + Multi-tenant JWT |
-| **AI** | N8N + Sofia Agent (GPT-4o Mini) |
-| **Messaging** | Baileys v6.7 (dedicated server) + Facebook/Instagram (in development) |
+| **AI Agent** | LangGraph + OpenAI (Python — `locai/agent/`) |
+| **Messaging** | Baileys v6.7 (dedicated server) + Facebook/Instagram |
 | **Validation** | Zod schemas + input sanitization |
-| **Calendar Sync** | iCal bidirectional (Airbnb/Booking) |
+| **Airbnb Integration** | Link de fechamento + leitura de iCal sob demanda |
 
 ### Core Features
 
-- **Sofia AI**: N8N-powered consultant with 60 specialized functions
+- **LangGraph Agent**: serviço Python autônomo (`locai/agent/`) que faz
+  router → planner ↔ executor → reflection → responder. Substitui a Sofia/N8N.
 - **Multi-tenant**: Complete isolation (`tenants/{tenantId}/collections`)
-- **CRM**: Pipeline automation, lead scoring, advanced analytics
+- **CRM**: Pipeline com estágio terminal `handed_off` (cliente foi pro Airbnb)
 - **WhatsApp**: Dedicated Baileys server on DigitalOcean
 - **Facebook/Instagram**: Direct Messages integration (in development)
-- **iCal Sync**: Bidirectional sync with Airbnb/Booking (import/export)
+- **Airbnb Hand-off**: agent compartilha link Airbnb (`share_airbnb_link`).
+  Disponibilidade é checada ao vivo via `ical_check_availability` (read-only,
+  nada é persistido no sistema).
 - **Revolutionary Onboarding**: Guided 2-step property + WhatsApp setup
 - **Security**: Zod validation + sanitization + rate limiting
 
@@ -57,21 +63,23 @@ npm run type-check         # TypeScript validation
 // Complete tenant isolation
 tenants/
   {tenantId}/
-    properties/           // Real estate listings
-    clients/             // Customer information
-    reservations/        // Booking management
-    transactions/        // Financial records
-    leads/               // CRM pipeline
-    conversations/       // Chat history (WhatsApp/Facebook/Instagram)
-    messages/            // Individual messages
-    amenities/           // Property features
-    goals/               // Business goals
-    calendar_sync_configurations/  // iCal sync settings
-    settings/            // Tenant configuration
-      company/           // Company info
-      negotiation/       // Discount settings
-      policies/          // Business policies
-      ai-config/         // Sofia AI settings
+    properties/              // Catálogo de imóveis (sem campos de disponibilidade)
+    clients/                 // Customer information
+    visit_appointments/      // Visitas, retiradas de chave e support (NÃO reservas)
+    tenant_visit_schedules/  // Working hours, blocked dates, agentes disponíveis
+    transactions/            // Financial records (manualmente lançadas)
+    leads/                   // CRM pipeline (estágio terminal: 'handed_off')
+    conversations/           // Chat history (WhatsApp/Facebook/Instagram)
+    messages/                // Individual messages
+    amenities/               // Property features
+    goals/                   // Business goals
+    agent_runs/              // Telemetria do agent LangGraph
+    settings/                // Tenant configuration
+      company/               // Company info
+      policies/              // Business policies
+    // DESCONTINUADAS: reservations/ e calendar_sync_configurations/ não são
+    // mais escritas. Documentos legados continuam acessíveis para leitura
+    // histórica (relatórios), mas nenhum fluxo novo cria docs nelas.
 
 users/
   {userId}/
@@ -129,7 +137,81 @@ class MultiTenantFirestoreService<T> {
 
 ---
 
-## AI Functions Architecture (60 Endpoints)
+## LangGraph Agent (`locai/agent/`)
+
+Serviço Python (FastAPI + LangGraph) que substitui a Sofia/N8N. Roda em
+container próprio na porta `:8090`.
+
+```
+┌─────────────────┐   HMAC    ┌──────────────────┐
+│  Next.js (web)  │──────────►│  locai/agent     │
+│  - webhook      │◄──────────│  - FastAPI       │
+│  - REST tools   │           │  - LangGraph     │
+└─────────────────┘           └──────────────────┘
+```
+
+### Topologia do graph
+
+```
+START → router → planner ⇄ executor → reflection (operator-only) → responder → END
+```
+
+### Use cases (subconjunto de tools por modo)
+
+| use_case      | Audiência       | Tools disponíveis |
+|---------------|-----------------|-------------------|
+| `imobiliario` | Cliente final   | properties, ical, appointments, clients, conversations, memory, knowledge |
+| `operator`    | Equipe (chat)   | tudo do imobiliario + crm |
+| `analyst`     | Equipe (relatórios) | subset read-only |
+
+### Tools-chave
+
+- `properties_list / get_details / get_photos / search` — read-only no catálogo
+- `ical_check_availability` — busca o iCal do Airbnb ao vivo, NÃO persiste
+- `appointments_check_slots / create / cancel / ...` — agenda interna
+  restrita a `visit | key_pickup | support`
+- `share_airbnb_link` — entrega o link Airbnb (única forma de fechar)
+- `notify_human` — escala para atendente humano
+
+### Endpoints Next.js consumidos pelo agent
+
+Todos sob `/api/agent/*`, autenticados via HMAC-SHA256 com header
+`x-agent-signature`/`x-tenant-id`. Implementação compartilhada em
+`lib/agent/hmac.ts` e `lib/agent/dispatch.ts`.
+
+```
+POST /api/agent/tools/properties      (action: list|get_details|get_photos|search)
+POST /api/agent/tools/ical            (action: check_availability)
+POST /api/agent/tools/appointments    (action: check_slots|create|...|cancel)
+POST /api/agent/tools/clients         (action: lookup_by_phone|create|...)
+POST /api/agent/tools/conversations   (action: send_media|share_airbnb_link|notify_human)
+POST /api/agent/tools/memory          (action: recall|remember)
+POST /api/agent/tools/crm             (action: list_leads|search_leads|update_lead_stage)
+POST /api/agent/tools/knowledge       (action: search)
+POST /api/agent/runs                  (telemetria — persist)
+POST /api/agent/budget                (gate diário — check)
+```
+
+### Webhook → Agent
+
+`/api/webhook/whatsapp-microservice` chama `dispatchToAgent()` ao receber
+uma mensagem. Toggle `USE_LEGACY_N8N=true` no env permite voltar pra
+Sofia/N8N durante a transição (será removido depois da Tarefa 9 do roadmap
+de migração).
+
+---
+
+## ⚠️ AI Functions Architecture (REMOVIDO)
+
+Sofia/N8N e seus 60 endpoints foram **removidos**. O sistema usa apenas o
+LangGraph agent acima. Permanecem em pé apenas duas rotas standalone que
+não dependem do Sofia:
+
+- `app/api/ai/analyze-leads/route.ts` — chamada OpenAI direta para análise de leads
+- `app/api/ai/block-conversation/route.ts` — pausa o agent (Redis flag) para
+  intervenção humana; o LangGraph agent respeita o mesmo flag
+
+
 
 ### Function Pattern
 
@@ -394,9 +476,29 @@ interface OnboardingProgress {
 
 ---
 
-## iCal Synchronization System
+## ⚠️ iCal Synchronization System (REMOVIDO)
 
-### Bidirectional Sync
+A sincronização bidirecional de iCal foi **removida**. O sistema não
+gerencia mais disponibilidade interna. A única interação com calendário é
+o agent chamando `ical_check_availability` (leitura ao vivo da feed Airbnb,
+sem persistir) para responder dúvidas pontuais do cliente.
+
+Removidos:
+- `app/api/ical/*` (export feed)
+- `app/api/calendar/sync/*` (import + cron)
+- `app/api/properties/[id]/ical/*` (token gen)
+- `lib/services/{calendar-sync,ical-parser,ical-generator,airbnb-import,property-import}-service.ts`
+- Campos `iCalExportToken*`, `iCalImportSource`, `iCalLastSync`,
+  `iCalSyncEnabled`, `externalCalendarUrls` do Property type
+
+Mantidos:
+- `airbnbUrl` e `airbnbPropertyId` no Property — usados pelo agent
+- `iCalImportUrl` no Property — read-only, consultado pelo agent
+
+<details>
+<summary>Documentação histórica (não use)</summary>
+
+### Bidirectional Sync (LEGADO)
 
 **Export (Locai → Airbnb/Booking):**
 ```typescript
@@ -430,12 +532,10 @@ POST /api/calendar/sync/cron
 ### Key Services
 
 ```typescript
-// lib/services/ical-generator-service.ts   - Generate iCal feeds
-// lib/services/ical-parser-service.ts      - Parse external iCal
-// lib/services/calendar-sync-service.ts    - Orchestrate sync
-// lib/services/airbnb-import-service.ts    - Airbnb integration
-// lib/services/property-import-service.ts  - Bulk property import
+// (todos removidos)
 ```
+
+</details>
 
 ---
 
