@@ -44,6 +44,10 @@ class ProcessRequest(BaseModel):
     # Office address — used when client asks "onde fica a imobiliária"
     tenant_address: dict[str, Any] | None = None
 
+    # Cidade de atuação (da sede) — todos os imóveis são nesta cidade.
+    # O agent NUNCA deve perguntar "em qual cidade você quer?".
+    operating_city: str | None = None
+
     # Working hours (7-day list, 0=Mon..6=Sun) — for visit slot reasoning
     working_hours: list[dict[str, Any]] | None = None
 

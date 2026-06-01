@@ -167,6 +167,7 @@ async def run_agent(*, run_id: str, tenant_id: str, req: ProcessRequest) -> Agen
             "model": model,
             "current_date": req.current_date or "",
             "address": req.tenant_address or {},
+            "operating_city": req.operating_city or "",
             "working_hours": req.working_hours or [],
             "visit_settings": req.visit_settings or {},
             "properties_summary": req.properties_summary or [],

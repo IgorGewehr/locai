@@ -74,9 +74,13 @@ async function _buildTenantContext(tenantId: string) {
     const settings = services.settings;
     const company = await settings.getCompanyInfo?.().catch(() => null);
     if (company) {
-      companyName = company.name || company.razaoSocial;
+      companyName = company.name || company.razaoSocial || company.tradeName;
       companyDescription = company.description;
-      companyAddress = company.address;
+      companyAddress = company.address || {
+        city: company.city,
+        state: company.state,
+        neighborhood: company.neighborhood,
+      };
     }
     const visitSchedules: any[] = await services.visitSchedules.getAll(1).catch(() => []);
     if (visitSchedules?.[0]?.workingHours) {
@@ -93,10 +97,14 @@ async function _buildTenantContext(tenantId: string) {
     logger.warn('agent.context.settings_fetch_failed', { error: (err as Error).message });
   }
 
+  // A cidade de atuação é SEMPRE a da sede (clientes operam localmente).
+  const operatingCity = companyAddress?.city || companyAddress?.cidade || '';
+
   return {
     tenant_name: companyName,
     tenant_description: companyDescription,
     tenant_address: companyAddress,
+    operating_city: operatingCity,
     working_hours: workingHours,
     visit_settings: visitSettings,
     properties_summary: propertiesSummary,

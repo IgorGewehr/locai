@@ -198,6 +198,11 @@ def _base_rules(tenant_context: dict[str, Any]) -> str:
     if description:
         parts.append(f"Sobre a imobiliária: {description}")
 
+    # Cidade de atuação — todos os imóveis são nesta cidade (não perguntar ao cliente)
+    operating_city = tenant_context.get("operating_city") or ""
+    if operating_city:
+        parts.append(f"Cidade de atuação: {operating_city} (TODOS os imóveis são aqui — NUNCA pergunte em qual cidade o cliente quer, assuma sempre {operating_city})")
+
     addr_str = _format_address(address)
     if addr_str:
         parts.append(f"Endereço da imobiliária: {addr_str}")
