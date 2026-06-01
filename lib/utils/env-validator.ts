@@ -27,7 +27,7 @@ const envSchema = z.object({
   FIREBASE_PRIVATE_KEY: z.string().min(1).optional(),
 
   // OpenAI
-  OPENAI_API_KEY: z.string().regex(/^sk-/, 'Invalid OpenAI API key format'),
+  OPENAI_API_KEY: z.string().regex(/^sk-/, 'Invalid OpenAI API key format').optional(),
 
   // WhatsApp Web (optional - uses QR code authentication)
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
