@@ -3,8 +3,7 @@ import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
-import { getConversationState } from '@/lib/conversation/state'
-import { sendWhatsAppText, sendWhatsAppMedia } from '@/lib/whatsapp/outbound'
+import { dispatchToAgent } from '@/lib/agent/dispatchToAgent'
 import { findLeadByPhone, normalizeBrazilPhone } from '@/lib/services/lead-lookup'
 
 /**
@@ -133,12 +132,27 @@ export async function POST(request: NextRequest) {
                     })
                 })
                 // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
-                dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
-                    logger.error('❌ Agent dispatch error', {
-                        error: err instanceof Error ? err.message : String(err),
-                        tenantId: body.tenantId?.substring(0, 8) + '***',
+                const clientPhone = body.data?.from || ''
+                const msgText = body.data?.message || body.data?.text || ''
+                const msgId = body.data?.messageId || body.data?.id || ''
+                const pushName = body.data?.pushName || body.data?.contactName || ''
+                if (clientPhone && msgText) {
+                    dispatchToAgent(body.tenantId, {
+                        conversationId: `${body.tenantId}:${clientPhone}`,
+                        messageId: msgId,
+                        recipientId: clientPhone,
+                        contactName: pushName || clientPhone,
+                        contactPhone: clientPhone,
+                        message: msgText,
+                        channel: 'whatsapp',
+                        history: [],
+                    }).catch((err: unknown) => {
+                        logger.error('❌ Agent dispatch error', {
+                            error: err instanceof Error ? err.message : String(err),
+                            tenantId: body.tenantId?.substring(0, 8) + '***',
+                        })
                     })
-                })
+                }
             }
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
@@ -324,242 +338,6 @@ async function ensureLeadExists(tenantId: string, messageData: any) {
             tenantId: tenantId?.substring(0, 8) + '***',
         })
     }
-}
-
-/**
- * Carrega os overrides do ai-config do tenant para repassar ao agente.
- *
- * Lê de `tenants/{tenantId}/aiConfig/settings` — o MESMO path que a página
- * settings/ai-config grava (via /api/ai/config). Mapeia os campos de storage
- * para o contrato esperado pelo agente:
- *   customPrompts.companyName        → assistantName
- *   customPrompts.tone               → tone
- *   customPrompts.welcome            → welcomeMessage
- *   customPrompts.specialInstructions→ specialInstructions
- *
- * Retorna `null` quando não há nada útil para sobrepor (ou em erro — fail-open).
- * Pagamento/desconto NÃO é repassado (fora do MVP).
- */
-async function loadAiConfigOverrides(tenantId: string): Promise<{
-    assistantName?: string
-    tone?: string
-    welcomeMessage?: string
-    specialInstructions?: string
-} | null> {
-    if (!tenantId) return null
-    try {
-        const { db } = await import('@/lib/firebase/config')
-        const { doc, getDoc } = await import('firebase/firestore')
-        const snap = await getDoc(doc(db, 'tenants', tenantId, 'aiConfig', 'settings'))
-        if (!snap.exists()) return null
-        const data = snap.data() as any
-        const cp = data?.customPrompts || {}
-
-        const overrides: {
-            assistantName?: string
-            tone?: string
-            welcomeMessage?: string
-            specialInstructions?: string
-        } = {}
-        if (cp.companyName) overrides.assistantName = cp.companyName
-        if (cp.tone) overrides.tone = cp.tone
-        if (cp.welcome) overrides.welcomeMessage = cp.welcome
-        if (cp.specialInstructions) overrides.specialInstructions = cp.specialInstructions
-
-        return Object.keys(overrides).length > 0 ? overrides : null
-    } catch (err) {
-        logger.warn('⚠️ Falha ao carregar ai-config do tenant — seguindo sem overrides', {
-            error: err instanceof Error ? err.message : String(err),
-            tenantId: tenantId?.substring(0, 8) + '***',
-        })
-        return null
-    }
-}
-
-/**
- * Dispatch incoming message to the Python LangGraph agent.
- *
- * The agent will:
- * 1. Build conversation history from Firestore
- * 2. Run the LangGraph property-search flow
- * 3. Send the AI response back via the whatsapp_microservice
- */
-async function dispatchToAgent(tenantId: string, messageData: any) {
-    const agentUrl = process.env.AGENT_SERVICE_URL
-    const agentSecret = process.env.AGENT_SHARED_SECRET
-
-    if (!agentUrl || !agentSecret) {
-        logger.warn('⚠️ AGENT_SERVICE_URL or AGENT_SHARED_SECRET not set — AI response skipped')
-        return
-    }
-
-    const clientPhone: string = messageData.from || ''
-    const message: string = messageData.message || messageData.text || ''
-    const messageId: string = messageData.messageId || messageData.id || ''
-
-    if (!clientPhone || !message) return
-
-    // Gate de estado da conversa (substitui a checagem isolada de isAiBlocked).
-    // `getConversationState` retorna MANUAL sempre que a flag de takeover do
-    // operador está setada, preservando o comportamento de hoje bit a bit. A
-    // mensagem já foi PERSISTIDA pelo caller; aqui só decidimos se a IA responde.
-    // Fail-open: se a checagem falhar, respondemos (cliente nunca fica no vácuo).
-    try {
-        const state = await getConversationState(tenantId, clientPhone)
-        if (state === 'MANUAL' || state === 'AGUARDANDO_HUMANO' || state === 'ENCERRADA') {
-            logger.info('🔕 Conversa não está com a IA — pulando o agente', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                phone: clientPhone?.substring(0, 6) + '***',
-                state,
-            })
-            return
-        }
-        if (state === 'IA_TRABALHANDO') {
-            // Task diferida em curso: a msg fica bufferizada (persistida) e será
-            // lida no /resume. Não dispara /process (evita resposta concorrente).
-            logger.info('🛠️ Conversa em IA_TRABALHANDO — mensagem bufferizada para o /resume', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                phone: clientPhone?.substring(0, 6) + '***',
-            })
-            return
-        }
-        // ATIVA | FECHAMENTO → segue para o /process normalmente
-    } catch (err) {
-        logger.warn('⚠️ Falha ao checar o estado da conversa — prosseguindo com a IA', {
-            error: err instanceof Error ? err.message : String(err),
-            tenantId: tenantId?.substring(0, 8) + '***',
-        })
-    }
-
-    // Fetch recent conversation history from Firestore
-    let history: Array<{ role: string; content: string }> = []
-    try {
-        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
-        const services = new TenantServiceFactory(tenantId)
-        // Get conversation by phone (field is `clientPhone`, set in client-message/route.ts)
-        const conversations = await services.conversations.getWhere('clientPhone', '==', clientPhone)
-        const conv = conversations[0]
-        if (conv?.id) {
-            const recentMessages = await services.messages.getMany(
-                [{ field: 'conversationId', operator: '==', value: conv.id }],
-                { orderBy: [{ field: 'createdAt', direction: 'desc' }], limit: 20 }
-            )
-            // Reverse to chronological order and flatten client/sofia pairs into role-based history
-            for (const msg of recentMessages.reverse()) {
-                if ((msg as any).clientMessage) {
-                    history.push({ role: 'user', content: (msg as any).clientMessage })
-                }
-                if ((msg as any).sofiaMessage) {
-                    history.push({ role: 'assistant', content: (msg as any).sofiaMessage })
-                }
-            }
-        }
-    } catch (err) {
-        logger.warn('⚠️ Failed to load conversation history for agent', {
-            error: err instanceof Error ? err.message : String(err),
-        })
-    }
-
-    // AI-CONFIG → AGENTE: carrega o ai-config do tenant (mesmo path que a página
-    // settings/ai-config grava: tenants/{tid}/aiConfig/settings) e repassa como
-    // `ai_config` no /process. O agente injeta esses overrides no system prompt
-    // (assistantName/tone/welcomeMessage/specialInstructions) sem quebrar as
-    // regras-mãe. Sem desconto. Fail-open: se a leitura falhar, segue sem override.
-    const aiConfig = await loadAiConfigOverrides(tenantId)
-
-    // Sign request with HMAC
-    const crypto = await import('crypto')
-    const payload = JSON.stringify({
-        tenant_id: tenantId,
-        conversation_id: `${tenantId}:${clientPhone}`,
-        message_id: messageId,
-        message,
-        history,
-        contact: { phone: clientPhone },
-        ...(aiConfig && { ai_config: aiConfig }),
-    })
-    const ts = String(Date.now())
-    const sig = crypto.createHmac('sha256', agentSecret).update(`${ts}.`, 'utf8').update(payload).digest('hex')
-
-    const agentResp = await fetch(`${agentUrl}/process`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Agent-Signature': sig,
-            'X-Agent-Timestamp': ts,
-        },
-        body: payload,
-        signal: AbortSignal.timeout(55_000),
-    })
-
-    if (!agentResp.ok) {
-        logger.error('❌ Agent returned error', { status: agentResp.status })
-        return
-    }
-
-    const agentResult = await agentResp.json()
-    const finalResponse: string = agentResult.final_response || ''
-    const mediaUrls: string[] = agentResult.media_urls || []
-
-    // Turno diferido (defer_and_work): a frase de espera JÁ foi enviada pelo
-    // endpoint defer-task e a conversa está em IA_TRABALHANDO. Não enviar nada
-    // aqui (nem o fallback) — o re-engajamento virá pelo /resume.
-    if (agentResult.deferred) {
-        logger.info('🛠️ Agente deferiu o turno — frase de espera já enviada, aguardando /resume', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-        })
-        return
-    }
-
-    if (!finalResponse) {
-        // Send a fallback so the user doesn't get silence
-        await sendWhatsAppText(tenantId, clientPhone, 'Desculpa, tive um probleminha aqui. Pode repetir?').catch(() => {})
-        return
-    }
-
-    // Persist Sofia's response to Firestore (before sending to WhatsApp so it shows in Conversas)
-    try {
-        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
-        const svc = new TenantServiceFactory(tenantId)
-        const convs = await svc.conversations.getWhere('clientPhone', '==', clientPhone)
-        const convId = convs[0]?.id
-        if (convId) {
-            const now = new Date()
-            await svc.messages.create({
-                conversationId: convId,
-                tenantId,
-                clientMessage: null,
-                clientMessageTimestamp: null,
-                sofiaMessage: finalResponse,
-                sofiaMessageTimestamp: now,
-                createdAt: now,
-                ...(mediaUrls.length > 0 && { sofiaMediaUrls: mediaUrls }),
-            } as any)
-            await svc.conversations.update(convId, {
-                lastMessageAt: now,
-                lastMessage: finalResponse.substring(0, 200),
-                lastMessageFrom: 'sofia',
-                updatedAt: now,
-            } as any)
-        }
-    } catch (err) {
-        logger.warn('Failed to persist agent response', {
-            error: err instanceof Error ? err.message : String(err),
-        })
-    }
-
-    // Send AI response back via whatsapp_microservice (text + up to 5 media)
-    await sendWhatsAppText(tenantId, clientPhone, finalResponse)
-    if (mediaUrls.length > 0) {
-        await sendWhatsAppMedia(tenantId, clientPhone, mediaUrls)
-    }
-
-    logger.info('✅ Agent response dispatched', {
-        tenantId: tenantId?.substring(0, 8) + '***',
-        hasResponse: !!finalResponse,
-        mediaCount: mediaUrls.length,
-        intent: agentResult.intent,
-    })
 }
 
 /**
