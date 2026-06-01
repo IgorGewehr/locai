@@ -9,6 +9,7 @@ interface UseAIBlockStatusProps {
 
 interface AIBlockStatus {
   blocked: boolean;
+  expiresAt: number | null;
   loading: boolean;
   error: string | null;
 }
@@ -26,6 +27,7 @@ export function useAIBlockStatus({
 }: UseAIBlockStatusProps) {
   const [status, setStatus] = useState<AIBlockStatus>({
     blocked: false,
+    expiresAt: null,
     loading: false,
     error: null,
   });
@@ -37,7 +39,7 @@ export function useAIBlockStatus({
   // Check AI status
   const checkStatus = useCallback(async (force = false) => {
     if (!phone || !tenantId) {
-      setStatus({ blocked: false, loading: false, error: null });
+      setStatus({ blocked: false, expiresAt: null, loading: false, error: null });
       return;
     }
 
@@ -81,7 +83,8 @@ export function useAIBlockStatus({
       // Only update if phone hasn't changed
       if (phoneRef.current === phone) {
         setStatus({
-          blocked: result.success && result.data?.blocked || false,
+          blocked: (result.success && result.data?.blocked) || false,
+          expiresAt: result.data?.expiresAt ?? null,
           loading: false,
           error: null,
         });
@@ -130,7 +133,13 @@ export function useAIBlockStatus({
         throw new Error(errorData.error || 'Failed to enable manual mode');
       }
 
-      setStatus({ blocked: true, loading: false, error: null });
+      const result = await response.json().catch(() => null);
+      setStatus({
+        blocked: true,
+        expiresAt: result?.data?.expiresAt ?? Date.now() + duration * 60 * 60 * 1000,
+        loading: false,
+        error: null,
+      });
     } catch (error) {
       logger.error('[AI-BLOCK] Error enabling manual mode', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -170,7 +179,7 @@ export function useAIBlockStatus({
         throw new Error('Failed to disable manual mode');
       }
 
-      setStatus({ blocked: false, loading: false, error: null });
+      setStatus({ blocked: false, expiresAt: null, loading: false, error: null });
     } catch (error) {
       logger.error('[AI-BLOCK] Error disabling manual mode', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -191,7 +200,7 @@ export function useAIBlockStatus({
     phoneRef.current = phone;
 
     if (!phone || !tenantId) {
-      setStatus({ blocked: false, loading: false, error: null });
+      setStatus({ blocked: false, expiresAt: null, loading: false, error: null });
       return;
     }
 
@@ -211,6 +220,7 @@ export function useAIBlockStatus({
 
   return {
     blocked: status.blocked,
+    expiresAt: status.expiresAt,
     loading: status.loading,
     error: status.error,
     enableManualMode,

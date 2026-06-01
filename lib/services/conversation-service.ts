@@ -890,44 +890,24 @@ export class ConversationServiceOptimized {
         return [];
       }
 
-      const summaries = await Promise.all(
-        validConversations.map(async (conv) => {
-          try {
-            const lastMessages = await this.getConversationMessages(conv.id!, 1, 'desc');
-            const lastMessage = lastMessages[0];
-
-            return {
-              id: conv.id!,
-              clientName: conv.clientName,
-              clientPhone: conv.clientPhone,
-              channel: conv.channel || 'whatsapp',
-              lastMessage: lastMessage?.sofiaMessage || lastMessage?.clientMessage || conv.lastMessage || '',
-              lastMessageAt: conv.lastMessageAt,
-              messageCount: conv.messageCount || 0,
-              unreadCount: conv.unreadCount || 0,
-              status: conv.status || 'active',
-              isRead: conv.isRead !== false,
-              tags: conv.tags || [],
-              outcome: conv.outcome
-            } as ConversationListSummary;
-          } catch {
-            return {
-              id: conv.id!,
-              clientName: conv.clientName,
-              clientPhone: conv.clientPhone,
-              channel: conv.channel || 'whatsapp',
-              lastMessage: conv.lastMessage || '',
-              lastMessageAt: conv.lastMessageAt,
-              messageCount: conv.messageCount || 0,
-              unreadCount: conv.unreadCount || 0,
-              status: conv.status || 'active',
-              isRead: conv.isRead !== false,
-              tags: conv.tags || [],
-              outcome: conv.outcome
-            } as ConversationListSummary;
-          }
-        })
-      );
+      // The conversation header already carries `lastMessage` (kept in sync when
+      // messages are appended), so we build summaries directly from the headers.
+      // This avoids the previous N+1 — one extra `getConversationMessages` query
+      // per conversation just to read the last message — on the initial list load.
+      const summaries = validConversations.map((conv) => ({
+        id: conv.id!,
+        clientName: conv.clientName,
+        clientPhone: conv.clientPhone,
+        channel: conv.channel || 'whatsapp',
+        lastMessage: conv.lastMessage || '',
+        lastMessageAt: conv.lastMessageAt,
+        messageCount: conv.messageCount || 0,
+        unreadCount: conv.unreadCount || 0,
+        status: conv.status || 'active',
+        isRead: conv.isRead !== false,
+        tags: conv.tags || [],
+        outcome: conv.outcome
+      } as ConversationListSummary));
 
       return summaries;
     } catch (error) {

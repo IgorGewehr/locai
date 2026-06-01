@@ -112,14 +112,6 @@ export async function GET(
 
     const data = await response.json();
 
-    logger.info('Raw hasdata.com API response', {
-      propertyId,
-      hasProperty: !!data.property,
-      hasData: !!data.data,
-      topLevelKeys: Object.keys(data),
-      propertyKeys: data.property ? Object.keys(data.property) : [],
-    });
-
     // Transform the response to match our expected format
     const transformedData = transformAirbnbResponse(data, propertyId);
 
@@ -176,15 +168,6 @@ function transformAirbnbResponse(apiData: any, propertyId: string): any {
   // hasdata.com returns data in { property: {...} } structure
   // Extract the actual listing data
   const listing = apiData.property || apiData.data || apiData.listing || apiData;
-
-  logger.info('Transforming hasdata.com response', {
-    propertyId,
-    hasProperty: !!apiData.property,
-    hasPhotos: !!listing.photos,
-    photosCount: listing.photos?.length || 0,
-    hasAmenities: !!listing.amenities,
-    amenitiesCount: listing.amenities?.length || 0,
-  });
 
   // Extract photos - hasdata.com usually provides photos in different formats
   const photos = extractPhotos(listing);

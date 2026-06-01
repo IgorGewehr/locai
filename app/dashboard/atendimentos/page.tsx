@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Box, Typography, CircularProgress, Collapse } from '@mui/material';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { logger } from '@/lib/utils/logger';
@@ -10,6 +10,7 @@ import type { Lead } from '@/lib/types/crm';
 import { computeTriageStatus, sortLeadsByUrgency, hoursSince } from '@/lib/utils/triage';
 import { normalizeBrazilPhone } from '@/lib/services/lead-lookup';
 import LeadTriageCard from '@/components/organisms/triage/LeadTriageCard';
+import ReceitaPerdidaPanel from '@/components/organisms/atendimentos/ReceitaPerdidaPanel';
 
 type FilterKey = 'all' | 'needs_you' | 'cooling' | 'closing' | 'hot' | 'today';
 
@@ -37,11 +38,27 @@ export default function AtendimentosPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterKey>('all');
+  // Receita perdida is a 6-month / 24h-SLA view — secondary to the immediate-action
+  // triage above, so it lives collapsed below the list and the operator opts in.
+  const [showReceita, setShowReceita] = useState(false);
 
   const loadLeads = useCallback(async () => {
     if (!services) return;
     try {
-      const all = await services.leads.getAll(300);
+      // Deterministic selection: order by updatedAt desc so the 300-doc window is
+      // the 300 most-recently-touched leads (stable across loads) instead of an
+      // arbitrary Firestore order. sortLeadsByUrgency still ranks them for display.
+      let all: Lead[];
+      try {
+        all = await services.leads.getMany([], {
+          orderBy: 'updatedAt',
+          orderDirection: 'desc',
+          limit: 300,
+        });
+      } catch {
+        // Fallback if the ordered query fails (e.g. missing index / legacy docs).
+        all = await services.leads.getAll(300);
+      }
       setLeads(all);
     } catch (e) {
       logger.error('[Atendimentos] Failed to load leads', e instanceof Error ? e : undefined);
@@ -177,6 +194,36 @@ export default function AtendimentosPage() {
           </Box>
         )}
       </Box>
+
+      {/* Receita perdida — horizonte de 6m / SLA 24h. Colapsável e abaixo da lista
+          para não competir com a triagem de ação imediata ("Precisam de você"). */}
+      {!loading && leads.length > 0 && (
+        <Box sx={{ flexShrink: 0, mt: 2, borderTop: '1px solid rgba(255,255,255,0.06)', pt: 1.5 }}>
+          <Box
+            component="button"
+            onClick={() => setShowReceita((v) => !v)}
+            sx={{
+              display: 'inline-flex', alignItems: 'center', gap: 0.75,
+              bgcolor: 'transparent', border: 'none', cursor: 'pointer', p: 0, outline: 'none',
+            }}
+          >
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Receita perdida
+            </Typography>
+            <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.35)' }}>
+              {showReceita ? 'ocultar' : 'ver horizonte de receita'}
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', transition: 'transform 0.15s ease', transform: showReceita ? 'rotate(180deg)' : 'none' }}>
+              ▾
+            </Typography>
+          </Box>
+          <Collapse in={showReceita} unmountOnExit>
+            <Box sx={{ mt: 1.5 }}>
+              <ReceitaPerdidaPanel leads={leads} hideTitle />
+            </Box>
+          </Collapse>
+        </Box>
+      )}
     </Box>
   );
 }

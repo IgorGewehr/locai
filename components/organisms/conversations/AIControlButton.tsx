@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -17,13 +17,17 @@ import {
   AccessTime as ClockIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTenant } from '@/contexts/TenantContext';
-import { useAuth } from '@/lib/hooks/useAuth';
 import { logger } from '@/lib/utils/logger';
 
 interface AIControlButtonProps {
   phone: string;
   conversationName?: string;
+  /** P1-4: shared AI-block state, lifted to the page (same source as MessageInput). */
+  blocked: boolean;
+  expiresAt: number | null;
+  loading: boolean;
+  enableManualMode: (duration?: number, reason?: string) => Promise<void>;
+  disableManualMode: () => Promise<void>;
 }
 
 const DURATIONS = [
@@ -33,70 +37,53 @@ const DURATIONS = [
   { value: 24, label: '24h' },
 ];
 
-export default function AIControlButton({ phone, conversationName }: AIControlButtonProps) {
-  const { tenantId } = useTenant();
-  const { getFirebaseToken } = useAuth();
-  const [blocked, setBlocked] = useState(false);
-  const [blockExpiry, setBlockExpiry] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function AIControlButton({
+  phone,
+  conversationName,
+  blocked,
+  expiresAt,
+  loading,
+  enableManualMode,
+  disableManualMode,
+}: AIControlButtonProps) {
+  // P1-4: single source of truth — the AI-block state/actions are provided by
+  // the SAME useAIBlockStatus instance the MessageInput uses (lifted to the
+  // page), so the header pill and the input footer never drift. P1-5: that
+  // hook always sends the Authorization Bearer token (the old local fetch in
+  // this component did not).
   const [submitting, setSubmitting] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedDuration, setSelectedDuration] = useState(1);
 
-  useEffect(() => {
-    if (!tenantId || !phone) { setLoading(false); return; }
-
-    let mounted = true;
-    const check = async () => {
-      try {
-        const token = await getFirebaseToken();
-        const res = await fetch(`/api/ai/block-conversation?phone=${encodeURIComponent(phone)}`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        });
-        const data = await res.json();
-        if (mounted && data.success) {
-          setBlocked(data.data.blocked ?? false);
-          setBlockExpiry(data.data.expiresAt ?? null);
-        }
-      } catch { /* silent */ }
-      finally { if (mounted) setLoading(false); }
-    };
-
-    check();
-    const t = setInterval(check, 120_000);
-    return () => { mounted = false; clearInterval(t); };
-  }, [tenantId, phone]);
-
-  const toggle = async (block: boolean, duration?: number) => {
+  const block = async (duration: number) => {
     setSubmitting(true);
     try {
-      const token = await getFirebaseToken();
-      const res = await fetch('/api/ai/block-conversation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ phone, blocked: block, duration: block ? duration : undefined }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setBlocked(block);
-        setBlockExpiry(data.data?.expiresAt ?? null);
-        setAnchorEl(null);
-      }
+      await enableManualMode(duration);
+      setAnchorEl(null);
     } catch (e) {
-      logger.error('[AIControlButton] toggle error', e instanceof Error ? e : undefined);
+      logger.error('[AIControlButton] enableManualMode error', e instanceof Error ? e : undefined);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const expiryLabel = blockExpiry
-    ? new Date(blockExpiry).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const unblock = async () => {
+    setSubmitting(true);
+    try {
+      await disableManualMode();
+    } catch (e) {
+      logger.error('[AIControlButton] disableManualMode error', e instanceof Error ? e : undefined);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // P1-3: derive the label from the REAL expiresAt (epoch ms) of the contract.
+  const expiryLabel = expiresAt
+    ? new Date(expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  if (loading) {
+  if (loading && !submitting) {
     return <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.3)' }} />;
   }
 
@@ -107,7 +94,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
           component="button"
           onClick={(e: React.MouseEvent<HTMLElement>) => {
             if (blocked) {
-              toggle(false);
+              unblock();
             } else {
               setAnchorEl(e.currentTarget);
             }
@@ -134,7 +121,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
           }}
         >
           {submitting ? (
-            <CircularProgress size={12} sx={{ color: blocked ? '#f87171' : '#f87171' }} />
+            <CircularProgress size={12} sx={{ color: '#f87171' }} />
           ) : blocked ? (
             <ManualIcon sx={{ fontSize: 14, color: '#f87171' }} />
           ) : (
@@ -154,7 +141,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
                 sx={{
                   fontSize: '0.75rem',
                   fontWeight: 600,
-                  color: blocked ? '#f87171' : '#f87171',
+                  color: '#f87171',
                   lineHeight: 1,
                   whiteSpace: 'nowrap',
                 }}
@@ -231,7 +218,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
         <Button
           fullWidth
           variant="contained"
-          onClick={() => toggle(true, selectedDuration)}
+          onClick={() => block(selectedDuration)}
           disabled={submitting}
           startIcon={submitting ? <CircularProgress size={14} color="inherit" /> : <ManualIcon />}
           sx={{

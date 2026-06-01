@@ -3,14 +3,26 @@ import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
-import { dispatchToAgent } from '@/lib/agent/dispatchToAgent'
+import { getConversationState } from '@/lib/conversation/state'
+import { sendWhatsAppText, sendWhatsAppMedia } from '@/lib/whatsapp/outbound'
+import { findLeadByPhone, normalizeBrazilPhone } from '@/lib/services/lead-lookup'
 
 /**
  * Webhook para receber mensagens do WhatsApp Microservice.
  *
+ * Para cada evento `message`:
+ *  1. Persiste a mensagem no Firestore via /api/webhook/client-message (dashboard + histórico).
+ *  2. Despacha para o agente Sofia (LangGraph) em dispatchToAgent() — fire-and-forget;
+ *     a resposta da IA é persistida e enviada de volta ao cliente pelo microservice.
+ *
  * Fluxo:
- *   WhatsApp -> Microservice -> Este Webhook -> locai/agent (Python+LangGraph)
- *      -> agent processa, chama tools, envia resposta via /api/conversations/send
+ *   WhatsApp -> Microservice -> Este Webhook
+ *     -> client-message (Firestore)
+ *     -> agente POST /process -> /api/agent/tools/* -> resposta
+ *     -> POST {microservice}/api/v1/messages/{tenantId}/send
+ *
+ * Nota: o agente é o motor de IA atual (substituiu o N8N). A resposta automática
+ * só ocorre se AGENT_SERVICE_URL e AGENT_SHARED_SECRET estiverem configurados.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -40,12 +52,19 @@ export async function POST(request: NextRequest) {
 
         // Método 2: Verificar HMAC signature (fallback)
         if (!authenticated && secret && signature) {
-            const expectedSignature = 'sha256=' + crypto
+            const expectedHex = crypto
                 .createHmac('sha256', secret)
                 .update(rawBody, 'utf8')
                 .digest('hex')
 
-            if (signature === expectedSignature) {
+            // O microservice envia o digest hex puro (sem prefixo). Aceitamos
+            // ambos os formatos — com e sem o prefixo `sha256=` — para manter
+            // compatibilidade independente de quem assina.
+            const normalizedSignature = signature.startsWith('sha256=')
+                ? signature.slice('sha256='.length)
+                : signature
+
+            if (normalizedSignature === expectedHex) {
                 authenticated = true
                 logger.info('✅ Microservice authenticated via HMAC signature', {
                     tenantId: tenantId?.substring(0, 8) + '***'
@@ -53,7 +72,7 @@ export async function POST(request: NextRequest) {
             } else {
                 logger.warn('🔍 HMAC signature mismatch', {
                     received: signature,
-                    expected: expectedSignature,
+                    expected: expectedHex,
                     rawBodyLength: rawBody.length,
                     tenantId: tenantId?.substring(0, 8) + '***'
                 })
@@ -91,7 +110,36 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
-            await processIncomingMessageViaAgent(body.tenantId, body.data)
+            // Deduplicação ANTES de qualquer processamento. O microservice pode
+            // reentregar o mesmo evento (retry/reconexão); sem este gate, uma
+            // reentrega persistiria de novo E dispararia uma SEGUNDA resposta da
+            // IA ao cliente. Marcar uma única vez aqui cobre persist + dispatch.
+            const messageId: string | undefined = body.data?.messageId || body.data?.id
+            if (messageId && await deduplicationCache.checkAndMark(body.tenantId, messageId)) {
+                logger.info('🔁 Duplicate message — skipping persist + agent dispatch', {
+                    tenantId: body.tenantId?.substring(0, 8) + '***',
+                    messageId: messageId?.substring(0, 8) + '***',
+                })
+            } else {
+                // 1. Persist message to Firestore (for dashboard + history)
+                await persistIncomingMessage(body.tenantId, body.data)
+                // 1b. Garantir que existe um Lead para este telefone (raiz do handoff —
+                //     sem Lead, a tela de Atendimentos fica vazia). Fire-and-forget:
+                //     idempotente por telefone e nunca bloqueia a resposta da IA.
+                ensureLeadExists(body.tenantId, body.data).catch((err: unknown) => {
+                    logger.error('❌ ensureLeadExists error', {
+                        error: err instanceof Error ? err.message : String(err),
+                        tenantId: body.tenantId?.substring(0, 8) + '***',
+                    })
+                })
+                // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
+                dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
+                    logger.error('❌ Agent dispatch error', {
+                        error: err instanceof Error ? err.message : String(err),
+                        tenantId: body.tenantId?.substring(0, 8) + '***',
+                    })
+                })
+            }
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -116,54 +164,402 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 🚀 NOVO PADRÃO: encaminhar a mensagem para o agent LangGraph.
- *
- * Fire-and-forget. O agent processa internamente, chama as tools que precisar
- * e dispara a resposta de volta via /api/conversations/send.
+ * Persistir mensagem entrante delegando para /api/webhook/client-message,
+ * que já cuida de criar conversation, salvar message e publicar real-time
+ * no Redis. A deduplicação é feita pelo chamador (POST handler) antes desta
+ * função, então aqui não repetimos o check.
  */
-async function processIncomingMessageViaAgent(tenantId: string, messageData: any) {
+async function persistIncomingMessage(tenantId: string, messageData: any) {
     try {
-        const messageId = messageData.messageId || messageData.id
-        const clientPhone = messageData.from
-        const message = messageData.message || messageData.text
+        const messageId = messageData.messageId || messageData.id;
+        const clientPhone = messageData.from;
+        const message = messageData.message || messageData.text;
 
         if (!messageId || !clientPhone || !message || message.trim() === '') {
             logger.warn('⚠️ Invalid message data, skipping', {
                 tenantId: tenantId?.substring(0, 8) + '***',
-            })
-            return
+                hasMessageId: !!messageId,
+                hasClientPhone: !!clientPhone,
+                hasMessage: !!message
+            });
+            return;
         }
 
-        if (deduplicationCache.isDuplicate(tenantId, messageId)) {
-            logger.info('🔁 Message already processed, skipping', {
+        const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
+        if (!apiKey) {
+            logger.error('❌ WHATSAPP_MICROSERVICE_API_KEY not set — cannot delegate to client-message');
+            return;
+        }
+
+        // Loopback evita round-trip externo via Cloudflare Tunnel.
+        const internalPort = process.env.PORT || '7070';
+        const internalUrl = `http://127.0.0.1:${internalPort}/api/webhook/client-message`;
+
+        // Microservice envia `type` ∈ {text,image,video,document}; client-message
+        // espera `mediaType` ∈ {image,video,audio,document}. Só repassa quando há
+        // mídia de verdade (text vira undefined).
+        const allowedMediaTypes = ['image', 'video', 'audio', 'document'] as const;
+        const incomingType = messageData.type;
+        const mediaType = allowedMediaTypes.includes(incomingType) ? incomingType : undefined;
+
+        const payload = {
+            tenantId,
+            event: 'message',
+            data: {
+                from: clientPhone,
+                message,
+                messageId,
+                timestamp: new Date().toISOString(),
+                ...(messageData.mediaUrl && { mediaUrl: messageData.mediaUrl }),
+                ...(mediaType && { mediaType }),
+            }
+        };
+
+        const response = await fetch(internalUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => 'unable to read body');
+            logger.error('❌ client-message rejected payload', {
+                status: response.status,
                 tenantId: tenantId?.substring(0, 8) + '***',
-                messageId: messageId?.substring(0, 8) + '***',
+                body: errorText.substring(0, 200),
+            });
+            return;
+        }
+
+        logger.info('✅ Incoming message persisted via client-message', {
+            tenantId: tenantId?.substring(0, 8) + '***',
+            from: clientPhone?.substring(0, 6) + '***',
+            messageId: messageId?.substring(0, 8) + '***',
+        });
+    } catch (error) {
+        logger.error('❌ Error persisting incoming message:', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            tenantId: tenantId?.substring(0, 8) + '***',
+        });
+    }
+}
+
+/**
+ * Garante que existe um Lead para o telefone que está mandando mensagem.
+ *
+ * É a RAIZ do handoff: sem um Lead no caminho vivo, a tela de Atendimentos fica
+ * vazia e o humano nunca vê a conversa pra assumir. Na 1ª mensagem de um telefone
+ * novo cria o Lead (status NEW, source whatsapp, telefone NORMALIZADO via
+ * lead-lookup); nas mensagens seguintes só atualiza `lastContactDate`.
+ *
+ * Idempotente por telefone: usa findLeadByPhone (que testa comDDI/semDDI/raw ×
+ * phone/clientPhone) antes de criar, então não duplica Lead.
+ *
+ * Roda fire-and-forget (chamado com .catch no POST handler) — nunca bloqueia a
+ * resposta da IA.
+ */
+async function ensureLeadExists(tenantId: string, messageData: any) {
+    const rawPhone: string = messageData?.from || ''
+    if (!tenantId || !rawPhone) return
+
+    try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
+        const { LeadStatus, LeadSource } = await import('@/lib/types/crm')
+        const services = new TenantServiceFactory(tenantId)
+        const now = new Date()
+
+        // Idempotência: se já existe lead (em qualquer variação de telefone), só
+        // atualiza o último contato. NÃO cria de novo.
+        const existing = await findLeadByPhone(tenantId, rawPhone)
+        if (existing) {
+            await services.leads.update(existing.id, {
+                lastContactDate: now,
+            } as any)
+            logger.info('🔄 Lead existente — lastContactDate atualizado', {
+                tenantId: tenantId.substring(0, 8) + '***',
+                leadId: existing.id,
+                phone: rawPhone.substring(0, 6) + '***',
             })
             return
         }
-        deduplicationCache.markAsProcessed(tenantId, messageId)
 
-        await dispatchToAgent(tenantId, {
-            conversationId: messageData.conversationId || `wa_${tenantId}_${clientPhone}`,
-            messageId,
-            recipientId: clientPhone,
-            channel: 'whatsapp',
-            contactName: messageData.contactName || messageData.pushName || clientPhone,
-            contactPhone: clientPhone,
-            message,
-            history: [],
-        })
+        // Telefone NORMALIZADO consistente (comDDI 55) — mesmo helper usado no
+        // resto do sistema, para que o lookup futuro sempre encontre.
+        const phone = normalizeBrazilPhone(rawPhone)
+        const name: string | undefined = messageData?.name || messageData?.pushName || undefined
 
-        logger.info('✅ Message dispatched to LangGraph agent', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            messageId: messageId?.substring(0, 8) + '***',
+        // 1ª mensagem deste telefone → cria o Lead. status NEW, source whatsapp.
+        // create() já preenche createdAt/updatedAt e filtra undefineds.
+        const leadId = await services.leads.create({
+            tenantId,
+            name: name || 'Lead WhatsApp',
+            phone,
+            clientPhone: phone,
+            whatsappNumber: rawPhone,
+            status: LeadStatus.NEW,
+            source: LeadSource.WHATSAPP_AI,
+            sourceDetails: 'Primeiro contato via WhatsApp — criado no webhook',
+            score: 25,
+            temperature: 'cold',
+            qualificationCriteria: { budget: false, authority: false, need: false, timeline: false },
+            preferences: {},
+            firstContactDate: now,
+            lastContactDate: now,
+            totalInteractions: 1,
+            tags: [],
+        } as any)
+
+        logger.info('✨ Lead criado no caminho vivo (webhook)', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            leadId,
+            phone: phone.substring(0, 6) + '***',
         })
     } catch (error) {
-        logger.error('❌ Error dispatching to LangGraph agent:', {
+        logger.error('❌ Error ensuring lead exists:', {
             error: error instanceof Error ? error.message : 'Unknown error',
             tenantId: tenantId?.substring(0, 8) + '***',
         })
     }
+}
+
+/**
+ * Carrega os overrides do ai-config do tenant para repassar ao agente.
+ *
+ * Lê de `tenants/{tenantId}/aiConfig/settings` — o MESMO path que a página
+ * settings/ai-config grava (via /api/ai/config). Mapeia os campos de storage
+ * para o contrato esperado pelo agente:
+ *   customPrompts.companyName        → assistantName
+ *   customPrompts.tone               → tone
+ *   customPrompts.welcome            → welcomeMessage
+ *   customPrompts.specialInstructions→ specialInstructions
+ *
+ * Retorna `null` quando não há nada útil para sobrepor (ou em erro — fail-open).
+ * Pagamento/desconto NÃO é repassado (fora do MVP).
+ */
+async function loadAiConfigOverrides(tenantId: string): Promise<{
+    assistantName?: string
+    tone?: string
+    welcomeMessage?: string
+    specialInstructions?: string
+} | null> {
+    if (!tenantId) return null
+    try {
+        const { db } = await import('@/lib/firebase/config')
+        const { doc, getDoc } = await import('firebase/firestore')
+        const snap = await getDoc(doc(db, 'tenants', tenantId, 'aiConfig', 'settings'))
+        if (!snap.exists()) return null
+        const data = snap.data() as any
+        const cp = data?.customPrompts || {}
+
+        const overrides: {
+            assistantName?: string
+            tone?: string
+            welcomeMessage?: string
+            specialInstructions?: string
+        } = {}
+        if (cp.companyName) overrides.assistantName = cp.companyName
+        if (cp.tone) overrides.tone = cp.tone
+        if (cp.welcome) overrides.welcomeMessage = cp.welcome
+        if (cp.specialInstructions) overrides.specialInstructions = cp.specialInstructions
+
+        return Object.keys(overrides).length > 0 ? overrides : null
+    } catch (err) {
+        logger.warn('⚠️ Falha ao carregar ai-config do tenant — seguindo sem overrides', {
+            error: err instanceof Error ? err.message : String(err),
+            tenantId: tenantId?.substring(0, 8) + '***',
+        })
+        return null
+    }
+}
+
+/**
+ * Dispatch incoming message to the Python LangGraph agent.
+ *
+ * The agent will:
+ * 1. Build conversation history from Firestore
+ * 2. Run the LangGraph property-search flow
+ * 3. Send the AI response back via the whatsapp_microservice
+ */
+async function dispatchToAgent(tenantId: string, messageData: any) {
+    const agentUrl = process.env.AGENT_SERVICE_URL
+    const agentSecret = process.env.AGENT_SHARED_SECRET
+
+    if (!agentUrl || !agentSecret) {
+        logger.warn('⚠️ AGENT_SERVICE_URL or AGENT_SHARED_SECRET not set — AI response skipped')
+        return
+    }
+
+    const clientPhone: string = messageData.from || ''
+    const message: string = messageData.message || messageData.text || ''
+    const messageId: string = messageData.messageId || messageData.id || ''
+
+    if (!clientPhone || !message) return
+
+    // Gate de estado da conversa (substitui a checagem isolada de isAiBlocked).
+    // `getConversationState` retorna MANUAL sempre que a flag de takeover do
+    // operador está setada, preservando o comportamento de hoje bit a bit. A
+    // mensagem já foi PERSISTIDA pelo caller; aqui só decidimos se a IA responde.
+    // Fail-open: se a checagem falhar, respondemos (cliente nunca fica no vácuo).
+    try {
+        const state = await getConversationState(tenantId, clientPhone)
+        if (state === 'MANUAL' || state === 'AGUARDANDO_HUMANO' || state === 'ENCERRADA') {
+            logger.info('🔕 Conversa não está com a IA — pulando o agente', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                phone: clientPhone?.substring(0, 6) + '***',
+                state,
+            })
+            return
+        }
+        if (state === 'IA_TRABALHANDO') {
+            // Task diferida em curso: a msg fica bufferizada (persistida) e será
+            // lida no /resume. Não dispara /process (evita resposta concorrente).
+            logger.info('🛠️ Conversa em IA_TRABALHANDO — mensagem bufferizada para o /resume', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                phone: clientPhone?.substring(0, 6) + '***',
+            })
+            return
+        }
+        // ATIVA | FECHAMENTO → segue para o /process normalmente
+    } catch (err) {
+        logger.warn('⚠️ Falha ao checar o estado da conversa — prosseguindo com a IA', {
+            error: err instanceof Error ? err.message : String(err),
+            tenantId: tenantId?.substring(0, 8) + '***',
+        })
+    }
+
+    // Fetch recent conversation history from Firestore
+    let history: Array<{ role: string; content: string }> = []
+    try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
+        const services = new TenantServiceFactory(tenantId)
+        // Get conversation by phone (field is `clientPhone`, set in client-message/route.ts)
+        const conversations = await services.conversations.getWhere('clientPhone', '==', clientPhone)
+        const conv = conversations[0]
+        if (conv?.id) {
+            const recentMessages = await services.messages.getMany(
+                [{ field: 'conversationId', operator: '==', value: conv.id }],
+                { orderBy: [{ field: 'createdAt', direction: 'desc' }], limit: 20 }
+            )
+            // Reverse to chronological order and flatten client/sofia pairs into role-based history
+            for (const msg of recentMessages.reverse()) {
+                if ((msg as any).clientMessage) {
+                    history.push({ role: 'user', content: (msg as any).clientMessage })
+                }
+                if ((msg as any).sofiaMessage) {
+                    history.push({ role: 'assistant', content: (msg as any).sofiaMessage })
+                }
+            }
+        }
+    } catch (err) {
+        logger.warn('⚠️ Failed to load conversation history for agent', {
+            error: err instanceof Error ? err.message : String(err),
+        })
+    }
+
+    // AI-CONFIG → AGENTE: carrega o ai-config do tenant (mesmo path que a página
+    // settings/ai-config grava: tenants/{tid}/aiConfig/settings) e repassa como
+    // `ai_config` no /process. O agente injeta esses overrides no system prompt
+    // (assistantName/tone/welcomeMessage/specialInstructions) sem quebrar as
+    // regras-mãe. Sem desconto. Fail-open: se a leitura falhar, segue sem override.
+    const aiConfig = await loadAiConfigOverrides(tenantId)
+
+    // Sign request with HMAC
+    const crypto = await import('crypto')
+    const payload = JSON.stringify({
+        tenant_id: tenantId,
+        conversation_id: `${tenantId}:${clientPhone}`,
+        message_id: messageId,
+        message,
+        history,
+        contact: { phone: clientPhone },
+        ...(aiConfig && { ai_config: aiConfig }),
+    })
+    const ts = String(Date.now())
+    const sig = crypto.createHmac('sha256', agentSecret).update(`${ts}.`, 'utf8').update(payload).digest('hex')
+
+    const agentResp = await fetch(`${agentUrl}/process`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Agent-Signature': sig,
+            'X-Agent-Timestamp': ts,
+        },
+        body: payload,
+        signal: AbortSignal.timeout(55_000),
+    })
+
+    if (!agentResp.ok) {
+        logger.error('❌ Agent returned error', { status: agentResp.status })
+        return
+    }
+
+    const agentResult = await agentResp.json()
+    const finalResponse: string = agentResult.final_response || ''
+    const mediaUrls: string[] = agentResult.media_urls || []
+
+    // Turno diferido (defer_and_work): a frase de espera JÁ foi enviada pelo
+    // endpoint defer-task e a conversa está em IA_TRABALHANDO. Não enviar nada
+    // aqui (nem o fallback) — o re-engajamento virá pelo /resume.
+    if (agentResult.deferred) {
+        logger.info('🛠️ Agente deferiu o turno — frase de espera já enviada, aguardando /resume', {
+            tenantId: tenantId?.substring(0, 8) + '***',
+        })
+        return
+    }
+
+    if (!finalResponse) {
+        // Send a fallback so the user doesn't get silence
+        await sendWhatsAppText(tenantId, clientPhone, 'Desculpa, tive um probleminha aqui. Pode repetir?').catch(() => {})
+        return
+    }
+
+    // Persist Sofia's response to Firestore (before sending to WhatsApp so it shows in Conversas)
+    try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
+        const svc = new TenantServiceFactory(tenantId)
+        const convs = await svc.conversations.getWhere('clientPhone', '==', clientPhone)
+        const convId = convs[0]?.id
+        if (convId) {
+            const now = new Date()
+            await svc.messages.create({
+                conversationId: convId,
+                tenantId,
+                clientMessage: null,
+                clientMessageTimestamp: null,
+                sofiaMessage: finalResponse,
+                sofiaMessageTimestamp: now,
+                createdAt: now,
+                ...(mediaUrls.length > 0 && { sofiaMediaUrls: mediaUrls }),
+            } as any)
+            await svc.conversations.update(convId, {
+                lastMessageAt: now,
+                lastMessage: finalResponse.substring(0, 200),
+                lastMessageFrom: 'sofia',
+                updatedAt: now,
+            } as any)
+        }
+    } catch (err) {
+        logger.warn('Failed to persist agent response', {
+            error: err instanceof Error ? err.message : String(err),
+        })
+    }
+
+    // Send AI response back via whatsapp_microservice (text + up to 5 media)
+    await sendWhatsAppText(tenantId, clientPhone, finalResponse)
+    if (mediaUrls.length > 0) {
+        await sendWhatsAppMedia(tenantId, clientPhone, mediaUrls)
+    }
+
+    logger.info('✅ Agent response dispatched', {
+        tenantId: tenantId?.substring(0, 8) + '***',
+        hasResponse: !!finalResponse,
+        mediaCount: mediaUrls.length,
+        intent: agentResult.intent,
+    })
 }
 
 /**

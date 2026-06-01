@@ -24,6 +24,7 @@ import {
   Stepper,
   Step,
   StepLabel,
+  TextField,
 } from '@mui/material';
 import {
   WhatsApp,
@@ -31,6 +32,7 @@ import {
   Info,
   CheckCircle,
   QrCode2,
+  NotificationsActive,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthProvider';
 
@@ -56,6 +58,13 @@ export default function Step3WhatsAppSetup({
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+
+  // WhatsApp do dono (recebe os avisos da Sofia / handoff)
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerSaving, setOwnerSaving] = useState(false);
+  const [ownerSaved, setOwnerSaved] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
+
   const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const isInitializingRef = React.useRef(false); // Previne múltiplas chamadas
   const hasCheckedExistingSession = React.useRef(false);
@@ -313,6 +322,32 @@ export default function Step3WhatsAppSetup({
     }
   };
 
+  const handleSaveOwnerPhone = async () => {
+    if (!ownerPhone.trim()) return;
+    setOwnerSaving(true);
+    setOwnerError(null);
+    setOwnerSaved(false);
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch('/api/tenant/settings/owner-channel', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ownerWhatsappPhone: ownerPhone.trim() }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        if (data.data?.ownerWhatsappPhone) setOwnerPhone(data.data.ownerWhatsappPhone);
+        setOwnerSaved(true);
+      } else {
+        setOwnerError(data.error || 'Erro ao salvar o WhatsApp do dono');
+      }
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Erro ao salvar o WhatsApp do dono');
+    } finally {
+      setOwnerSaving(false);
+    }
+  };
+
   const handleSkip = () => {
     stopPolling();
     if (onSkip) onSkip();
@@ -394,6 +429,66 @@ export default function Step3WhatsAppSetup({
           >
             Conecte seu WhatsApp para receber leads e automatizar respostas
           </Alert>
+
+          {/* WhatsApp do dono (avisos da Sofia / handoff) */}
+          <Card
+            sx={{
+              backgroundColor: alpha(theme.palette.background.paper, 0.5),
+              border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+            }}
+          >
+            <CardContent>
+              <Stack spacing={1.5}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <NotificationsActive sx={{ color: '#25D366' }} />
+                  <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 600 }}>
+                    WhatsApp que recebe os avisos da Sofia
+                  </Typography>
+                </Stack>
+                <Typography variant="body2" sx={{ color: alpha('#ffffff', 0.7) }}>
+                  Quando a Sofia qualifica um lead e agenda uma visita, ela avisa um
+                  humano para fechar. Informe o WhatsApp (com DDD) que vai receber
+                  esses avisos.
+                </Typography>
+
+                {ownerError && (
+                  <Alert severity="error" onClose={() => setOwnerError(null)}>
+                    {ownerError}
+                  </Alert>
+                )}
+                {ownerSaved && (
+                  <Alert severity="success" icon={<CheckCircle fontSize="inherit" />}>
+                    WhatsApp do dono salvo.
+                  </Alert>
+                )}
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
+                  <TextField
+                    label="WhatsApp do dono"
+                    placeholder="(11) 99999-9999"
+                    value={ownerPhone}
+                    onChange={(e) => setOwnerPhone(e.target.value)}
+                    disabled={ownerSaving}
+                    size="small"
+                    fullWidth
+                    helperText="Inclua o DDD. O DDI (55) é adicionado automaticamente."
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveOwnerPhone}
+                    disabled={ownerSaving || !ownerPhone.trim()}
+                    sx={{
+                      background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                      whiteSpace: 'nowrap',
+                      '&:hover': { background: 'linear-gradient(135deg, #128C7E, #25D366)' },
+                    }}
+                  >
+                    {ownerSaving ? 'Salvando...' : 'Salvar'}
+                  </Button>
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
 
           {/* Content */}
           {!connected ? (

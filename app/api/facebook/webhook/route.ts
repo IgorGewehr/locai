@@ -194,6 +194,16 @@ export async function POST(req: NextRequest) {
  * Handle Facebook Messenger and Instagram DM events
  */
 async function handleMessagingEvent(body: any): Promise<void> {
+    // MVP: O fio FB/IG para a Sofia ANTIGA (ai-service-stub → sofia-agent-v3) está
+    // DESATIVADO. O webhook continua respondendo 200 (acknowledge) para a Meta, mas
+    // não roteia nada para a IA legada. Será religado ao agente LangGraph no futuro.
+    logger.info('[Facebook Webhook] FB/IG desativado no MVP - evento de mensagem ignorado (Sofia antiga off)', {
+        object: body?.object,
+        entryCount: body?.entry?.length || 0
+    })
+    return
+
+    // eslint-disable-next-line no-unreachable
     for (const entry of body.entry || []) {
         const pageId = entry.id
         const messaging = entry.messaging || []

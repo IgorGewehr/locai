@@ -4,10 +4,21 @@ import { logger } from '@/lib/utils/logger';
 import { Lead, LeadStatus, LeadTemperature } from '@/lib/types/crm';
 import { Client } from '@/lib/types/client';
 import { Reservation } from '@/lib/types/reservation';
-import { startOfMonth, endOfMonth, subMonths, format, startOfWeek, endOfWeek, subDays } from 'date-fns';
+import { subMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { computeCrmInsightsFromLeads, toMillis } from '@/lib/analytics/crm-insights-core';
 
+/**
+ * CRM analytics endpoint.
+ *
+ * Funnel/conversion/revenue numbers come from the shared, fully-real
+ * `computeCrmInsightsFromLeads` core (no fabricated values: cost-based metrics
+ * are `null` with `costDataAvailable: false`). This route only adds the
+ * lead-distribution buckets and headline counts the dashboard chart shape
+ * expects, all derived in-memory from a SINGLE leads read (no duplicate fetch).
+ */
 interface CRMAnalytics {
+  costDataAvailable: false;
   overview: {
     totalLeads: number;
     totalClients: number;
@@ -29,19 +40,19 @@ interface CRMAnalytics {
     scoreTrend: Array<{ period: string; averageScore: number }>;
   };
   performance: {
-    topSources: Array<{ 
-      source: string; 
-      leads: number; 
-      conversions: number; 
-      revenue: number; 
-      roi: number;
-      avgConversionTime: number; // days
+    topSources: Array<{
+      source: string;
+      leads: number;
+      conversions: number;
+      revenue: number;
+      roi: number | null;
+      avgConversionTime: number | null; // days
     }>;
     sourceEfficiency: Array<{
       source: string;
-      costPerLead: number;
-      costPerConversion: number;
-      lifetimeValue: number;
+      costPerLead: number | null;
+      costPerConversion: number | null;
+      lifetimeValue: number | null;
     }>;
     conversionFunnel: Array<{
       stage: LeadStatus;
@@ -55,12 +66,7 @@ interface CRMAnalytics {
     nextMonthConversions: number;
     nextMonthRevenue: number;
     confidence: number;
-    trends: Array<{
-      metric: string;
-      prediction: number;
-      confidence: number;
-      factors: string[];
-    }>;
+    trends: Array<{ metric: string; prediction: number; confidence: number; factors: string[] }>;
   };
   insights: {
     opportunityAreas: Array<{
@@ -75,12 +81,15 @@ interface CRMAnalytics {
       affectedLeads: number;
       mitigation: string[];
     }>;
-    bestPractices: Array<{
-      practice: string;
-      benefit: string;
-      implementation: string;
-    }>;
+    bestPractices: Array<{ practice: string; benefit: string; implementation: string }>;
   };
+}
+
+function monthLabel(key: string): string {
+  // key is 'YYYY-MM'
+  const [y, m] = key.split('-').map(Number);
+  if (!y || !m) return key;
+  return format(new Date(y, m - 1, 1), 'MMM yyyy', { locale: ptBR });
 }
 
 export async function GET(request: NextRequest) {
@@ -97,322 +106,242 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const periodMonths = period === '1m' ? 1 : period === '3m' ? 3 : period === '1y' ? 12 : 6;
+
     logger.info(`📊 [CRM Analytics] Generating analytics for tenant ${tenantId.substring(0, 8)}***`, {
       period,
-      includeAI
+      includeAI,
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const leadService = serviceFactory.createService<Lead>('leads');
-    const clientService = serviceFactory.createService<Client>('clients');
-    const reservationService = serviceFactory.createService<Reservation>('reservations');
-
-    // Calculate date ranges
-    const now = new Date();
-    let startDate: Date;
-    
-    switch (period) {
-      case '1m':
-        startDate = subMonths(now, 1);
-        break;
-      case '3m':
-        startDate = subMonths(now, 3);
-        break;
-      case '6m':
-        startDate = subMonths(now, 6);
-        break;
-      case '1y':
-        startDate = subMonths(now, 12);
-        break;
-      default:
-        startDate = subMonths(now, 6);
-    }
-
-    // Fetch data
+    // Single read per collection. Leads power the funnel insights AND the
+    // distribution buckets below — no second leads fetch.
     const [leads, clients, reservations] = await Promise.all([
-      leadService.getAll(),
-      clientService.getAll(),
-      reservationService.getAll()
+      serviceFactory.createService<Lead>('leads').getAll(),
+      serviceFactory.createService<Client>('clients').getAll(),
+      serviceFactory.createService<Reservation>('reservations').getAll(),
     ]);
 
-    // Filter data by date range
-    const filteredLeads = leads.filter(lead => 
-      lead.createdAt && lead.createdAt.toDate() >= startDate
-    );
-    const filteredClients = clients.filter(client => 
-      client.createdAt && client.createdAt.toDate() >= startDate
-    );
+    // Real funnel / conversion / revenue analysis (shared core, no fabrication).
+    const insights = computeCrmInsightsFromLeads(leads, { periodMonths });
 
-    // Calculate overview metrics
-    const totalLeads = filteredLeads.length;
-    const totalClients = filteredClients.length;
-    const conversionRate = totalLeads > 0 ? (totalClients / totalLeads) * 100 : 0;
-    const averageScore = filteredLeads.reduce((sum, lead) => sum + (lead.score || 0), 0) / totalLeads || 0;
-    const totalRevenue = reservations.reduce((sum, res) => sum + (res.totalPrice || 0), 0);
-    const averageLeadValue = totalLeads > 0 ? totalRevenue / totalLeads : 0;
+    // Window the leads the same way the core does, for the distribution buckets.
+    const windowStartMs = subMonths(new Date(), periodMonths).getTime();
+    const windowLeads = leads.filter((l) => {
+      const ms = toMillis(l.createdAt);
+      return ms !== null && ms >= windowStartMs;
+    });
+    const totalLeads = windowLeads.length;
+    const pct = (n: number) => (totalLeads > 0 ? (n / totalLeads) * 100 : 0);
 
-    // Calculate lead distribution
-    const statusCounts = filteredLeads.reduce((acc, lead) => {
-      acc[lead.status] = (acc[lead.status] || 0) + 1;
+    // ---- Overview ----
+    const totalRevenue = insights.overview.totalRevenue;
+    const overview = {
+      totalLeads,
+      totalClients: clients.length,
+      conversionRate: insights.overview.conversionRate,
+      averageScore: insights.overview.averageScore,
+      totalRevenue,
+      averageLeadValue: totalLeads > 0 ? totalRevenue / totalLeads : 0,
+      totalReservations: reservations.length,
+    };
+
+    // ---- Lead distribution ----
+    const statusCounts = windowLeads.reduce((acc, l) => {
+      acc[l.status] = (acc[l.status] || 0) + 1;
       return acc;
     }, {} as Record<LeadStatus, number>);
 
-    const temperatureCounts = filteredLeads.reduce((acc, lead) => {
-      acc[lead.temperature] = (acc[lead.temperature] || 0) + 1;
+    const temperatureCounts = windowLeads.reduce((acc, l) => {
+      acc[l.temperature] = (acc[l.temperature] || 0) + 1;
       return acc;
     }, {} as Record<LeadTemperature, number>);
 
-    const sourceCounts = filteredLeads.reduce((acc, lead) => {
-      const source = lead.source || 'unknown';
-      acc[source] = (acc[source] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    // Calculate source conversion rates
-    const sourceConversions = filteredClients.reduce((acc, client) => {
-      const source = client.source || 'unknown';
-      acc[source] = (acc[source] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const bySource = Object.entries(sourceCounts).map(([source, count]) => ({
-      source,
-      count,
-      percentage: (count / totalLeads) * 100,
-      conversionRate: sourceConversions[source] ? (sourceConversions[source] / count) * 100 : 0
-    }));
-
-    // Calculate score distribution
     const scoreRanges = {
-      '0-20': filteredLeads.filter(l => (l.score || 0) <= 20).length,
-      '21-40': filteredLeads.filter(l => (l.score || 0) > 20 && (l.score || 0) <= 40).length,
-      '41-60': filteredLeads.filter(l => (l.score || 0) > 40 && (l.score || 0) <= 60).length,
-      '61-80': filteredLeads.filter(l => (l.score || 0) > 60 && (l.score || 0) <= 80).length,
-      '81-100': filteredLeads.filter(l => (l.score || 0) > 80).length,
+      '0-20': windowLeads.filter((l) => (l.score || 0) <= 20).length,
+      '21-40': windowLeads.filter((l) => (l.score || 0) > 20 && (l.score || 0) <= 40).length,
+      '41-60': windowLeads.filter((l) => (l.score || 0) > 40 && (l.score || 0) <= 60).length,
+      '61-80': windowLeads.filter((l) => (l.score || 0) > 60 && (l.score || 0) <= 80).length,
+      '81-100': windowLeads.filter((l) => (l.score || 0) > 80).length,
     };
 
-    const byScore = Object.entries(scoreRanges).map(([range, count]) => ({
-      range,
-      count,
-      percentage: (count / totalLeads) * 100
+    const leadDistribution = {
+      byStatus: Object.entries(statusCounts).map(([status, count]) => ({
+        status: status as LeadStatus,
+        count,
+        percentage: pct(count),
+      })),
+      byTemperature: Object.entries(temperatureCounts).map(([temperature, count]) => ({
+        temperature: temperature as LeadTemperature,
+        count,
+        percentage: pct(count),
+      })),
+      // Source distribution comes from the insights core (real conversion per source).
+      bySource: insights.conversionBySource.map((s) => ({
+        source: s.source,
+        count: s.leads,
+        percentage: pct(s.leads),
+        conversionRate: s.conversionRate,
+      })),
+      byScore: Object.entries(scoreRanges).map(([range, count]) => ({
+        range,
+        count,
+        percentage: pct(count),
+      })),
+    };
+
+    // ---- Trends (from the real monthly trend) ----
+    const monthly = insights.revenue.monthlyTrend;
+    const trends = {
+      leadsOverTime: monthly.map((m) => ({
+        period: monthLabel(m.month),
+        leads: m.leads,
+        conversions: m.won,
+        revenue: m.revenue,
+      })),
+      conversionTrend: monthly.map((m) => ({
+        period: monthLabel(m.month),
+        rate: m.leads > 0 ? (m.won / m.leads) * 100 : 0,
+      })),
+      scoreTrend: monthly.map((m) => ({
+        period: monthLabel(m.month),
+        averageScore: Math.round(m.averageScore),
+      })),
+    };
+
+    // ---- Performance (cost-based metrics are null — never fabricated) ----
+    const topSources = [...insights.conversionBySource]
+      .sort((a, b) => b.conversionRate - a.conversionRate)
+      .slice(0, 5)
+      .map((s) => ({
+        source: s.source,
+        leads: s.leads,
+        conversions: s.won,
+        revenue: s.revenue,
+        roi: null, // requires acquisition cost / ad-spend, not stored
+        avgConversionTime: s.avgConversionTimeDays,
+      }));
+
+    const sourceEfficiency = insights.conversionBySource.slice(0, 5).map((s) => ({
+      source: s.source,
+      costPerLead: null, // requires ad-spend
+      costPerConversion: null, // requires ad-spend
+      lifetimeValue: null, // requires longitudinal client revenue, not available here
     }));
 
-    // Generate monthly trends
-    const monthlyData: Array<{ period: string; leads: number; conversions: number; revenue: number }> = [];
-    
-    for (let i = 0; i < 6; i++) {
-      const monthStart = startOfMonth(subMonths(now, i));
-      const monthEnd = endOfMonth(subMonths(now, i));
-      
-      const monthLeads = filteredLeads.filter(lead => {
-        const createdAt = lead.createdAt?.toDate();
-        return createdAt && createdAt >= monthStart && createdAt <= monthEnd;
-      }).length;
-      
-      const monthConversions = filteredClients.filter(client => {
-        const createdAt = client.createdAt?.toDate();
-        return createdAt && createdAt >= monthStart && createdAt <= monthEnd;
-      }).length;
-      
-      const monthRevenue = reservations.filter(res => {
-        const createdAt = res.createdAt?.toDate();
-        return createdAt && createdAt >= monthStart && createdAt <= monthEnd;
-      }).reduce((sum, res) => sum + (res.totalPrice || 0), 0);
-      
-      monthlyData.unshift({
-        period: format(monthStart, 'MMM yyyy', { locale: ptBR }),
-        leads: monthLeads,
-        conversions: monthConversions,
-        revenue: monthRevenue
-      });
-    }
+    const conversionFunnel = insights.funnel.map((f) => ({
+      stage: f.status,
+      count: f.count,
+      percentage: f.pctOfTotal,
+      dropOffRate: f.dropOffRate,
+    }));
 
-    // Calculate conversion funnel
-    const funnelStages: LeadStatus[] = [LeadStatus.NEW, LeadStatus.CONTACTED, LeadStatus.QUALIFIED, LeadStatus.NURTURING, LeadStatus.OPPORTUNITY];
-    const conversionFunnel = funnelStages.map((stage, index) => {
-      const count = statusCounts[stage] || 0;
-      const percentage = (count / totalLeads) * 100;
-      const previousCount = index > 0 ? (statusCounts[funnelStages[index - 1]] || 0) : totalLeads;
-      const dropOffRate = previousCount > 0 ? ((previousCount - count) / previousCount) * 100 : 0;
-      
-      return {
-        stage,
-        count,
-        percentage,
-        dropOffRate
-      };
-    });
-
-    // Generate AI predictions (simplified - in production this would use ML models)
-    let predictions = {
+    // ---- Predictions (simple trend extrapolation over the real last 3 months) ----
+    let predictions: CRMAnalytics['predictions'] = {
       nextMonthLeads: 0,
       nextMonthConversions: 0,
       nextMonthRevenue: 0,
       confidence: 0,
-      trends: [] as Array<{ metric: string; prediction: number; confidence: number; factors: string[] }>
+      trends: [],
     };
 
-    if (includeAI && monthlyData.length >= 3) {
-      const recentMonths = monthlyData.slice(-3);
-      const avgLeads = recentMonths.reduce((sum, month) => sum + month.leads, 0) / 3;
-      const avgConversions = recentMonths.reduce((sum, month) => sum + month.conversions, 0) / 3;
-      const avgRevenue = recentMonths.reduce((sum, month) => sum + month.revenue, 0) / 3;
-      
-      // Simple trend-based predictions
-      const leadGrowth = recentMonths.length > 1 
-        ? (recentMonths[recentMonths.length - 1].leads - recentMonths[0].leads) / recentMonths[0].leads
-        : 0;
-      
+    if (includeAI && monthly.length >= 3) {
+      const recent = monthly.slice(-3);
+      const avgLeads = recent.reduce((s, m) => s + m.leads, 0) / 3;
+      const avgConversions = recent.reduce((s, m) => s + m.won, 0) / 3;
+      const avgRevenue = recent.reduce((s, m) => s + m.revenue, 0) / 3;
+      const leadGrowth = recent[0].leads > 0 ? (recent[2].leads - recent[0].leads) / recent[0].leads : 0;
+
       predictions = {
         nextMonthLeads: Math.round(avgLeads * (1 + leadGrowth)),
-        nextMonthConversions: Math.round(avgConversions * (1 + leadGrowth * 0.8)), // Slightly more conservative
+        nextMonthConversions: Math.round(avgConversions * (1 + leadGrowth * 0.8)),
         nextMonthRevenue: Math.round(avgRevenue * (1 + leadGrowth * 0.9)),
-        confidence: 75,
+        confidence: 70,
         trends: [
           {
-            metric: 'Lead Generation',
+            metric: 'Geração de leads',
             prediction: Math.round(avgLeads * (1 + leadGrowth)),
-            confidence: 75,
-            factors: ['Historical growth', 'Source performance', 'Market trends']
-          },
-          {
-            metric: 'Conversion Rate',
-            prediction: conversionRate * (1 + leadGrowth * 0.1),
             confidence: 70,
-            factors: ['Lead quality improvement', 'Process optimization', 'Team experience']
-          }
-        ]
+            factors: ['Tendência dos últimos 3 meses', 'Crescimento observado'],
+          },
+        ],
       };
     }
 
-    // Generate insights
-    const insights = {
+    // ---- Qualitative insights, grounded in the real numbers ----
+    const topLost = insights.winLoss.topLostReasons[0];
+    const hotStuck = insights.hotLeadsNoFollowUp;
+    const insightsBlock: CRMAnalytics['insights'] = {
       opportunityAreas: [
+        ...(hotStuck.count > 0
+          ? [
+              {
+                area: 'Leads quentes sem retorno',
+                impact: 'high' as const,
+                description: `${hotStuck.count} lead(s) quente(s) sem retorno há mais de ${hotStuck.slaHours}h — risco direto de perda de receita.`,
+                recommendedActions: [
+                  'Priorizar o retorno aos leads quentes parados ainda hoje',
+                  'Definir um SLA de primeira resposta e alertar quando estourar',
+                ],
+              },
+            ]
+          : []),
         {
-          area: 'Lead Nurturing',
-          impact: 'high' as const,
-          description: `${statusCounts.nurturing || 0} leads em nurturing podem ser convertidos com melhor follow-up`,
-          recommendedActions: [
-            'Implementar automação de email marketing',
-            'Criar conteúdo educativo personalizado',
-            'Agendar calls de follow-up regulares'
-          ]
-        },
-        {
-          area: 'Source Optimization',
+          area: 'Conversão por fonte',
           impact: 'medium' as const,
-          description: 'Alguns canais têm baixa taxa de conversão mas alto volume',
+          description: 'Concentrar esforço nas fontes com maior taxa de conversão real.',
           recommendedActions: [
-            'Analisar qualidade dos leads por fonte',
-            'Ajustar estratégias de aquisição',
-            'Focar investimento em fontes de alta conversão'
-          ]
-        }
+            'Comparar conversão por fonte e realocar esforço para as melhores',
+            'Investigar fontes de alto volume e baixa conversão',
+          ],
+        },
       ],
       riskFactors: [
-        {
-          risk: 'Lead Stagnation',
-          severity: 'medium' as const,
-          affectedLeads: (statusCounts.contacted || 0) + (statusCounts.qualified || 0),
-          mitigation: [
-            'Definir SLAs para cada estágio',
-            'Automatizar alertas de follow-up',
-            'Treinar equipe em técnicas de conversão'
-          ]
-        }
+        ...(topLost
+          ? [
+              {
+                risk: `Maior motivo de perda: "${topLost.reason}"`,
+                severity: 'medium' as const,
+                affectedLeads: topLost.count,
+                mitigation: [
+                  'Tratar a objeção mais comum no script de atendimento',
+                  'Acompanhar a evolução desse motivo ao longo do tempo',
+                ],
+              },
+            ]
+          : []),
       ],
       bestPractices: [
         {
-          practice: 'Score-based Prioritization',
-          benefit: 'Foco nos leads mais promissores',
-          implementation: 'Ordenar tarefas diárias por score de lead'
+          practice: 'Resposta rápida a leads quentes',
+          benefit: 'Maior taxa de conversão',
+          implementation: 'Responder leads quentes dentro do SLA definido',
         },
-        {
-          practice: 'Multi-channel Approach',
-          benefit: 'Maior taxa de resposta',
-          implementation: 'Combinar WhatsApp, email e calls estrategicamente'
-        }
-      ]
+      ],
     };
 
     const analytics: CRMAnalytics = {
-      overview: {
-        totalLeads,
-        totalClients,
-        conversionRate,
-        averageScore,
-        totalRevenue,
-        averageLeadValue,
-        totalReservations: reservations.length
-      },
-      leadDistribution: {
-        byStatus: Object.entries(statusCounts).map(([status, count]) => ({
-          status: status as LeadStatus,
-          count,
-          percentage: (count / totalLeads) * 100
-        })),
-        byTemperature: Object.entries(temperatureCounts).map(([temperature, count]) => ({
-          temperature: temperature as LeadTemperature,
-          count,
-          percentage: (count / totalLeads) * 100
-        })),
-        bySource,
-        byScore
-      },
-      trends: {
-        leadsOverTime: monthlyData,
-        conversionTrend: monthlyData.map(month => ({
-          period: month.period,
-          rate: month.leads > 0 ? (month.conversions / month.leads) * 100 : 0
-        })),
-        scoreTrend: monthlyData.map(month => ({
-          period: month.period,
-          averageScore: Math.round(Math.random() * 20 + 60) // Placeholder - would calculate real scores
-        }))
-      },
-      performance: {
-        topSources: bySource
-          .sort((a, b) => b.conversionRate - a.conversionRate)
-          .slice(0, 5)
-          .map(source => ({
-            source: source.source,
-            leads: source.count,
-            conversions: Math.round(source.count * source.conversionRate / 100),
-            revenue: Math.round(averageLeadValue * source.count * source.conversionRate / 100),
-            roi: Math.round((Math.random() * 200) + 150), // Placeholder
-            avgConversionTime: Math.round(Math.random() * 30 + 15) // Placeholder
-          })),
-        sourceEfficiency: bySource.slice(0, 5).map(source => ({
-          source: source.source,
-          costPerLead: Math.round(Math.random() * 50 + 25), // Placeholder
-          costPerConversion: Math.round(Math.random() * 200 + 100), // Placeholder
-          lifetimeValue: Math.round(averageLeadValue * 1.5) // Placeholder
-        })),
-        conversionFunnel
-      },
+      costDataAvailable: false,
+      overview,
+      leadDistribution,
+      trends,
+      performance: { topSources, sourceEfficiency, conversionFunnel },
       predictions,
-      insights
+      insights: insightsBlock,
     };
 
     logger.info(`✅ [CRM Analytics] Analytics generated successfully`, {
       tenantId: tenantId.substring(0, 8) + '***',
       totalLeads,
-      totalClients,
-      conversionRate: Math.round(conversionRate * 100) / 100
+      totalClients: clients.length,
+      conversionRate: Math.round(overview.conversionRate * 100) / 100,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: analytics
-    });
-
+    return NextResponse.json({ success: true, data: analytics });
   } catch (error) {
     logger.error('❌ [CRM Analytics] Error generating analytics:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Erro interno do servidor ao gerar analytics'
-      },
+      { success: false, error: 'Erro interno do servidor ao gerar analytics' },
       { status: 500 }
     );
   }

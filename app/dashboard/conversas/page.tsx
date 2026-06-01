@@ -4,11 +4,13 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from '
 import {
   Box, Typography, IconButton, InputBase, Avatar, Menu, MenuItem,
   ListItemIcon, ListItemText, CircularProgress, Divider, alpha,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button,
+  Snackbar, Alert,
 } from '@mui/material';
 import {
   Search, Refresh, MoreVert, WhatsApp, Chat,
   ArrowBack, KeyboardArrowDown, DoneAll, MarkChatUnread, Edit,
-  PanTool,
+  ErrorOutline,
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -25,6 +27,8 @@ import { normalizeBrazilPhone } from '@/lib/services/lead-lookup';
 import AIControlButton from '@/components/organisms/conversations/AIControlButton';
 import MessageBubble from '@/components/organisms/conversations/MessageBubble';
 import MessageInput from '@/components/organisms/conversations/MessageInput';
+import AssistantPinnedEntry from '@/components/organisms/conversations/AssistantPinnedEntry';
+import AssistantChat from '@/components/organisms/conversations/AssistantChat';
 
 const WA_COLOR = '#25D366';
 
@@ -64,11 +68,10 @@ interface RowProps {
   conv: ConversationListSummary;
   selected: boolean;
   triage: TriageStatus | null;
-  manual?: boolean;
   onSelect: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
 }
-const ConversationRow = memo(({ conv, selected, triage, manual, onSelect, onContextMenu }: RowProps) => {
+const ConversationRow = memo(({ conv, selected, triage, onSelect, onContextMenu }: RowProps) => {
   const unread = (conv.unreadCount ?? 0) > 0 || conv.isRead === false;
   const accent = triage ? TRIAGE_CONFIG[triage].color : 'transparent';
 
@@ -101,27 +104,13 @@ const ConversationRow = memo(({ conv, selected, triage, manual, onSelect, onCont
       {/* Text */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-            <Typography sx={{
-              fontSize: '0.875rem', fontWeight: unread ? 700 : 500,
-              color: unread ? '#f1f5f9' : 'rgba(255,255,255,0.82)',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {conv.clientName || conv.clientPhone}
-            </Typography>
-            {manual && (
-              <Box sx={{
-                display: 'inline-flex', alignItems: 'center', gap: 0.25,
-                px: 0.625, py: 0.125, borderRadius: '5px', flexShrink: 0,
-                bgcolor: 'rgba(107,114,128,0.15)', border: '0.5px solid rgba(107,114,128,0.3)',
-              }}>
-                <PanTool sx={{ fontSize: 9, color: '#9ca3af' }} />
-                <Typography sx={{ fontSize: '0.5625rem', color: '#9ca3af', fontWeight: 600, lineHeight: 1 }}>
-                  Manual
-                </Typography>
-              </Box>
-            )}
-          </Box>
+          <Typography sx={{
+            fontSize: '0.875rem', fontWeight: unread ? 700 : 500,
+            color: unread ? '#f1f5f9' : 'rgba(255,255,255,0.82)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {conv.clientName || conv.clientPhone}
+          </Typography>
           <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>
             {relTime(toDate(conv.lastMessageAt))}
           </Typography>
@@ -196,14 +185,27 @@ export default function ConversationsPage() {
     }
   }, [hasMore, loading, loadMoreConversations]);
 
-  const { blocked: aiBlocked, loading: checkingAiStatus, enableManualMode } = useAIBlockStatus({
+  // P1-4: single AI-block source for both the header pill (AIControlButton)
+  // and the input footer (MessageInput).
+  const {
+    blocked: aiBlocked, expiresAt: aiExpiresAt, loading: checkingAiStatus,
+    error: aiError, enableManualMode, disableManualMode,
+  } = useAIBlockStatus({
     phone: selectedConversation?.clientPhone, tenantId, getFirebaseToken,
   });
 
   const [searchText, setSearchText] = useState('');
+  // Pinned "Assistente Sofia" channel: when true the right panel shows AssistantChat.
+  const [selectedAssistant, setSelectedAssistant] = useState(false);
+  const [assistantUnread, setAssistantUnread] = useState(0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [statusMenuEl, setStatusMenuEl] = useState<null | HTMLElement>(null);
   const [leadMap, setLeadMap] = useState<Map<string, Lead>>(new Map());
+  // P2: MUI rename dialog (replaces native prompt()).
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  // P1-6: feedback toast for failed manual sends / actions.
+  const [toast, setToast] = useState<{ msg: string; severity: 'error' | 'success' } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const deepLinkDone = useRef(false);
 
@@ -252,11 +254,64 @@ export default function ConversationsPage() {
     if (messages.length > 0) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages.length]);
 
+  // P1-6: surface AI-status load errors instead of swallowing them.
+  useEffect(() => {
+    if (aiError) setToast({ msg: 'Não foi possível verificar o status da IA.', severity: 'error' });
+  }, [aiError]);
+
+  // Keep the pinned-entry unread badge fresh while the assistant thread is
+  // closed (AssistantChat owns the live count once it's open). Light: fetch
+  // on mount + when the tab regains focus, only if the panel isn't open.
+  useEffect(() => {
+    if (selectedAssistant) return;
+    let cancelled = false;
+    const fetchUnread = async () => {
+      try {
+        const token = await getFirebaseToken();
+        if (!token) return;
+        const res = await fetch('/api/agent/assistant/feed?limit=50', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data?.unread === 'number') setAssistantUnread(data.unread);
+      } catch (e) {
+        logger.error('[Conversas] assistant unread fetch failed', e instanceof Error ? e : undefined);
+      }
+    };
+    fetchUnread();
+    const onVis = () => { if (document.visibilityState === 'visible') fetchUnread(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVis); };
+  }, [selectedAssistant, getFirebaseToken]);
+
   const handleSelect = useCallback(async (id: string) => {
+    setSelectedAssistant(false);
     selectConversation(id);
     const conv = conversations.find((c) => c.id === id);
     if (conv && conv.isRead === false) await markAsRead(id);
   }, [selectConversation, conversations, markAsRead]);
+
+  const handleSelectAssistant = useCallback(() => {
+    clearSelection();
+    setSelectedAssistant(true);
+  }, [clearSelection]);
+
+  // Deep-link reused by the closing-alert card "Abrir conversa" button.
+  // Selects the matching conversation in-place (same normalizeBrazilPhone match
+  // the ?phone= deep-link uses) and leaves the assistant thread.
+  const openConversation = useCallback((phone: string) => {
+    const target = normalizeBrazilPhone(phone);
+    const match = conversations.find((c) => normalizeBrazilPhone(c.clientPhone) === target);
+    setSelectedAssistant(false);
+    if (match) {
+      selectConversation(match.id);
+      if (match.isRead === false) markAsRead(match.id);
+    } else {
+      // Conversation not in the loaded list — fall back to the URL deep-link.
+      window.location.href = `/dashboard/conversas?phone=${encodeURIComponent(phone)}`;
+    }
+  }, [conversations, selectConversation, markAsRead]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -265,19 +320,44 @@ export default function ConversationsPage() {
 
   const handleSend = useCallback(async (message: string) => {
     if (!selectedConversation || !tenantId) return;
-    const token = await getFirebaseToken();
-    const res = await fetch('/api/whatsapp/send-manual', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ tenantId, message, phone: selectedConversation.clientPhone }),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Falha ao enviar mensagem');
+    try {
+      const token = await getFirebaseToken();
+      const res = await fetch('/api/whatsapp/send-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId, message, phone: selectedConversation.clientPhone }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Falha ao enviar mensagem');
+    } catch (e) {
+      // P1-6: give the operator real feedback — don't just silently restore text.
+      setToast({ msg: e instanceof Error ? e.message : 'Falha ao enviar mensagem', severity: 'error' });
+      throw e; // MessageInput restores the typed text on rejection
+    }
   }, [selectedConversation, tenantId, getFirebaseToken]);
 
   const handleEnableManual = useCallback(async () => {
     try { await enableManualMode(1, 'Modo manual ativado pelo usuário'); }
-    catch (e) { logger.error('[Conversas] enableManualMode failed', e instanceof Error ? e : undefined); }
+    catch (e) {
+      logger.error('[Conversas] enableManualMode failed', e instanceof Error ? e : undefined);
+      setToast({ msg: 'Falha ao pausar a IA. Tente novamente.', severity: 'error' });
+    }
   }, [enableManualMode]);
+
+  // P2: confirm the rename via MUI dialog.
+  const handleRenameConfirm = useCallback(async () => {
+    if (!renameTarget) return;
+    const name = renameValue.trim();
+    if (!name) return;
+    try {
+      await renameConversation(renameTarget.id, name);
+      setToast({ msg: 'Contato renomeado.', severity: 'success' });
+    } catch (e) {
+      logger.error('[Conversas] renameConversation failed', e instanceof Error ? e : undefined);
+      setToast({ msg: 'Falha ao renomear o contato.', severity: 'error' });
+    } finally {
+      setRenameTarget(null);
+    }
+  }, [renameTarget, renameValue, renameConversation]);
 
   const selLead = leadFor(selectedConversation?.clientPhone);
   const selTriage = selLead ? computeTriageStatus(selLead) : null;
@@ -296,7 +376,7 @@ export default function ConversationsPage() {
       <Box sx={{
         width: { xs: '100%', md: 360 }, flexShrink: 0,
         borderRight: { md: '1px solid rgba(255,255,255,0.08)' },
-        display: { xs: selectedConversation ? 'none' : 'flex', md: 'flex' }, flexDirection: 'column',
+        display: { xs: (selectedConversation || selectedAssistant) ? 'none' : 'flex', md: 'flex' }, flexDirection: 'column',
       }}>
         {/* Header */}
         <Box sx={{ p: 2, pb: 1.5 }}>
@@ -350,8 +430,33 @@ export default function ConversationsPage() {
 
         {/* List */}
         <Box sx={{ flex: 1, overflowY: 'auto' }} onScroll={handleListScroll}>
+          {/* Pinned Sofia assistant — always 1st, regardless of filters/state */}
+          <AssistantPinnedEntry
+            selected={selectedAssistant}
+            unread={assistantUnread}
+            onSelect={handleSelectAssistant}
+          />
+          <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+
           {loading && conversations.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={24} sx={{ color: 'rgba(255,255,255,0.3)' }} /></Box>
+          ) : error && conversations.length === 0 ? (
+            // P1-6: a load failure must NOT masquerade as "no conversations".
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 6, px: 2 }}>
+              <ErrorOutline sx={{ fontSize: 32, color: 'rgba(248,113,113,0.7)' }} />
+              <Typography sx={{ textAlign: 'center', color: 'rgba(248,113,113,0.9)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                {error}
+              </Typography>
+              <Box component="button" onClick={refresh}
+                sx={{
+                  px: 1.5, py: 0.625, borderRadius: '8px', cursor: 'pointer', outline: 'none',
+                  border: '1px solid rgba(220,38,38,0.4)', bgcolor: 'rgba(220,38,38,0.1)',
+                  color: '#f87171', fontSize: '0.75rem', fontWeight: 600,
+                  '&:hover': { bgcolor: 'rgba(220,38,38,0.18)' },
+                }}>
+                Tentar novamente
+              </Box>
+            </Box>
           ) : conversations.length === 0 ? (
             <Typography sx={{ textAlign: 'center', py: 6, px: 2, color: 'rgba(255,255,255,0.4)', fontSize: '0.8125rem' }}>
               Nenhuma conversa encontrada.
@@ -364,7 +469,6 @@ export default function ConversationsPage() {
                   conv={conv}
                   selected={selectedConversation?.id === conv.id}
                   triage={triageFor(conv.clientPhone)}
-                  manual={(conv as any).aiBlocked === true}
                   onSelect={handleSelect}
                   onContextMenu={handleContextMenu}
                 />
@@ -386,10 +490,17 @@ export default function ConversationsPage() {
 
       {/* ── RIGHT: chat ────────────────────────────── */}
       <Box sx={{
-        flex: 1, minWidth: 0, display: { xs: selectedConversation ? 'flex' : 'none', md: 'flex' },
+        flex: 1, minWidth: 0, display: { xs: (selectedConversation || selectedAssistant) ? 'flex' : 'none', md: 'flex' },
         flexDirection: 'column', bgcolor: '#0b0f1a',
       }}>
-        {!selectedConversation ? (
+        {selectedAssistant ? (
+          <AssistantChat
+            active={selectedAssistant}
+            onOpenConversation={openConversation}
+            onUnreadChange={setAssistantUnread}
+            onBack={() => setSelectedAssistant(false)}
+          />
+        ) : !selectedConversation ? (
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
             <Chat sx={{ fontSize: 56, color: 'rgba(255,255,255,0.12)' }} />
             <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9375rem', fontWeight: 500 }}>Selecione uma conversa</Typography>
@@ -440,7 +551,15 @@ export default function ConversationsPage() {
               </Box>
 
               {/* actions */}
-              <AIControlButton phone={selectedConversation.clientPhone} conversationName={selectedConversation.clientName} />
+              <AIControlButton
+                phone={selectedConversation.clientPhone}
+                conversationName={selectedConversation.clientName}
+                blocked={aiBlocked}
+                expiresAt={aiExpiresAt}
+                loading={checkingAiStatus}
+                enableManualMode={enableManualMode}
+                disableManualMode={disableManualMode}
+              />
               <Box component="button" onClick={(e) => setStatusMenuEl(e.currentTarget)}
                 sx={{
                   display: 'inline-flex', alignItems: 'center', gap: 0.25, px: 1, py: 0.5, borderRadius: '8px',
@@ -495,14 +614,84 @@ export default function ConversationsPage() {
         <MenuItem onClick={() => {
           if (contextMenu) {
             const conv = conversations.find((c) => c.id === contextMenu.id);
-            const name = prompt('Novo nome do contato:', conv?.clientName || conv?.clientPhone || '');
-            if (name?.trim()) renameConversation(contextMenu.id, name.trim());
+            const initial = conv?.clientName || conv?.clientPhone || '';
+            setRenameTarget({ id: contextMenu.id, name: initial });
+            setRenameValue(initial);
             setContextMenu(null);
           }
         }}>
           <ListItemIcon><Edit fontSize="small" /></ListItemIcon><ListItemText>Renomear</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* P2: Rename dialog (replaces native prompt()) */}
+      <Dialog
+        open={renameTarget !== null}
+        onClose={() => setRenameTarget(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px' } }}
+      >
+        <DialogTitle sx={{ color: '#f1f5f9', fontSize: '1rem', fontWeight: 700 }}>Renomear contato</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            variant="outlined"
+            size="small"
+            placeholder="Novo nome do contato"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleRenameConfirm(); }}
+            sx={{
+              mt: 1,
+              '& .MuiOutlinedInput-root': {
+                color: '#e2e8f0',
+                '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' },
+                '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                '&.Mui-focused fieldset': { borderColor: '#dc2626' },
+              },
+              '& input::placeholder': { color: 'rgba(255,255,255,0.35)', opacity: 1 },
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setRenameTarget(null)} sx={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleRenameConfirm}
+            disabled={!renameValue.trim()}
+            variant="contained"
+            sx={{
+              bgcolor: '#dc2626', color: '#fff', textTransform: 'none', fontWeight: 600, boxShadow: 'none',
+              '&:hover': { bgcolor: '#b91c1c' },
+              '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' },
+            }}
+          >
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* P1-6: action feedback toast */}
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {toast ? (
+          <Alert
+            onClose={() => setToast(null)}
+            severity={toast.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {toast.msg}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </Box>
   );
 }

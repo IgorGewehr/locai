@@ -9,9 +9,11 @@ import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 import { getRedisClient } from '@/lib/redis/client';
+import { aiBlockKey, normalizeBlockPhone } from '@/lib/utils/ai-block';
 
-// Usar o MESMO formato de chave que o N8N usa para bloqueios
-// Exemplo: ai_block_{tenantId}_{phone}
+// Key format + phone normalization live in lib/utils/ai-block.ts so the writer
+// here and the reader in the WhatsApp webhook can never drift.
+// Key: ai_blocked:{tenantId}:{phone com 55}
 
 // Validation Schema
 const BlockConversationSchema = z.object({
@@ -53,11 +55,9 @@ export async function POST(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover sufixos WhatsApp
-    const normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
-
-    // Chave Redis: ai_blocked:{tenantId}:{phone}
-    const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
+    // Normalização + chave centralizadas em lib/utils/ai-block.ts
+    const normalizedPhone = normalizeBlockPhone(phone);
+    const redisKey = aiBlockKey(tenantId, phone);
 
     logger.info('[AI-BLOCK] Redis key generated', {
       requestId,
@@ -73,23 +73,11 @@ export async function POST(request: NextRequest) {
       const durationHours = duration || 1;
       const ttlSeconds = durationHours * 60 * 60;
 
-      // Bloquear IA - salva "true" no Redis com TTL
+      // Bloquear IA - salva apenas "true" no Redis
       await redis.set(redisKey, 'true', 'EX', ttlSeconds);
 
-      // Also update Firestore conversation for list display
-      try {
-        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2');
-        const services = new TenantServiceFactory(tenantId);
-        const phoneVariants = [normalizedPhone, `${normalizedPhone}@s.whatsapp.net`, `${normalizedPhone}@lid`, `${normalizedPhone}@c.us`];
-        for (const variant of phoneVariants) {
-          const convos = await services.conversations.getWhere('clientPhone', '==', variant);
-          for (const conv of convos) {
-            if (conv.id) {
-              await services.conversations.update(conv.id, { aiBlocked: true } as any);
-            }
-          }
-        }
-      } catch { /* non-critical */ }
+      // expiresAt em epoch ms (now + TTL) para alimentar o timer "IA pausada até HH:MM"
+      const expiresAt = Date.now() + ttlSeconds * 1000;
 
       logger.info('[AI-BLOCK] Conversation blocked', {
         requestId,
@@ -102,10 +90,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Agente de IA bloqueado para esta conversa',
+        blocked: true,
+        expiresAt,
         data: {
           tenantId,
           phone: normalizedPhone,
           blocked: true,
+          expiresAt,
         },
         meta: {
           requestId,
@@ -116,21 +107,6 @@ export async function POST(request: NextRequest) {
       // Desbloquear IA
       await redis.del(redisKey);
 
-      // Also update Firestore conversation
-      try {
-        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2');
-        const services = new TenantServiceFactory(tenantId);
-        const phoneVariants = [normalizedPhone, `${normalizedPhone}@s.whatsapp.net`, `${normalizedPhone}@lid`, `${normalizedPhone}@c.us`];
-        for (const variant of phoneVariants) {
-          const convos = await services.conversations.getWhere('clientPhone', '==', variant);
-          for (const conv of convos) {
-            if (conv.id) {
-              await services.conversations.update(conv.id, { aiBlocked: false } as any);
-            }
-          }
-        }
-      } catch { /* non-critical */ }
-
       logger.info('[AI-BLOCK] Conversation unblocked', {
         requestId,
         tenantId: tenantId.substring(0, 8) + '***',
@@ -140,10 +116,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Agente de IA desbloqueado para esta conversa',
+        blocked: false,
+        expiresAt: null,
         data: {
           tenantId,
           phone: normalizedPhone,
           blocked: false,
+          expiresAt: null,
         },
         meta: { requestId, timestamp: new Date().toISOString() },
       });
@@ -197,12 +176,21 @@ export async function GET(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover sufixos WhatsApp
-    const normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
-
-    // Buscar status no Redis
-    const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
+    // Normalização + chave centralizadas em lib/utils/ai-block.ts
+    const normalizedPhone = normalizeBlockPhone(phone);
+    const redisKey = aiBlockKey(tenantId, phone);
     const blockData = await redis.get(redisKey);
+    const blocked = blockData === 'true';
+
+    // Deriva expiresAt (epoch ms) do TTL restante da chave.
+    // PTTL retorna ms restantes; -1 = sem expiração, -2 = chave inexistente.
+    let expiresAt: number | null = null;
+    if (blocked) {
+      const pttlMs = await redis.pttl(redisKey);
+      if (pttlMs > 0) {
+        expiresAt = Date.now() + pttlMs;
+      }
+    }
 
     logger.info('[AI-BLOCK] GET request', {
       requestId,
@@ -210,14 +198,18 @@ export async function GET(request: NextRequest) {
       tenantId: tenantId.substring(0, 8) + '***',
       phoneNormalized: normalizedPhone,
       hasBlockData: !!blockData,
+      expiresAt,
     });
 
     return NextResponse.json({
       success: true,
+      blocked,
+      expiresAt,
       data: {
         tenantId,
         phone: normalizedPhone,
-        blocked: blockData === 'true',
+        blocked,
+        expiresAt,
       },
       meta: { requestId, timestamp: new Date().toISOString() },
     });

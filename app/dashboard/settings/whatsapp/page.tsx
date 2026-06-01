@@ -15,6 +15,7 @@ import {
   Card,
   CardContent,
   alpha,
+  TextField,
 } from '@mui/material';
 import {
   QrCode2,
@@ -25,6 +26,8 @@ import {
   PowerSettingsNew,
   CameraAlt,
   PhonelinkRing,
+  NotificationsActive,
+  Save,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -49,12 +52,20 @@ export default function WhatsAppPage() {
   const [status, setStatus] = useState<WhatsAppStatus>({ connected: false, status: 'disconnected' });
   const [error, setError] = useState<string | null>(null);
 
+  // WhatsApp do dono (recebe os avisos da Sofia / handoff)
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerLoading, setOwnerLoading] = useState(false);
+  const [ownerSaving, setOwnerSaving] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
+  const [ownerSaved, setOwnerSaved] = useState(false);
+
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isConnectingRef = useRef(false);
 
   useEffect(() => {
     if (!tenantId) return;
     loadStatus();
+    loadOwnerPhone();
     return () => stopPolling();
   }, [tenantId]);
 
@@ -108,6 +119,55 @@ export default function WhatsAppPage() {
       }
     } catch {
       // silent
+    }
+  };
+
+  const loadOwnerPhone = async () => {
+    if (!tenantId) return;
+    setOwnerLoading(true);
+    try {
+      const token = await getFirebaseToken();
+      const res = await fetch('/api/tenant/settings/owner-channel', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const result = await res.json();
+      if (result.success && result.data?.ownerWhatsappPhone) {
+        setOwnerPhone(result.data.ownerWhatsappPhone);
+      }
+    } catch {
+      // silent
+    } finally {
+      setOwnerLoading(false);
+    }
+  };
+
+  const handleSaveOwnerPhone = async () => {
+    setOwnerSaving(true);
+    setOwnerError(null);
+    setOwnerSaved(false);
+    try {
+      const token = await getFirebaseToken();
+      const res = await fetch('/api/tenant/settings/owner-channel', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ownerWhatsappPhone: ownerPhone.trim() }),
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        if (result.data?.ownerWhatsappPhone) setOwnerPhone(result.data.ownerWhatsappPhone);
+        setOwnerSaved(true);
+        setTimeout(() => setOwnerSaved(false), 3000);
+      } else {
+        setOwnerError(result.error || 'Erro ao salvar o WhatsApp do dono');
+      }
+    } catch {
+      setOwnerError('Erro ao salvar o WhatsApp do dono');
+    } finally {
+      setOwnerSaving(false);
     }
   };
 
@@ -279,6 +339,55 @@ export default function WhatsAppPage() {
             </Button>
           </Box>
         )}
+      </Paper>
+
+      {/* WhatsApp do dono (avisos da Sofia / handoff) */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+          <NotificationsActive sx={{ color: 'primary.main' }} />
+          <Typography variant="h6" fontWeight={600}>
+            WhatsApp que recebe os avisos da Sofia
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Quando a Sofia qualifica um lead e agenda uma visita, ela avisa um humano
+          para fechar o negócio. Informe o número de WhatsApp (com DDD) que deve
+          receber esses avisos de atendimento. Esse é o número que você vai conferir
+          para assumir a conversa e fechar.
+        </Typography>
+
+        {ownerError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setOwnerError(null)}>
+            {ownerError}
+          </Alert>
+        )}
+        {ownerSaved && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setOwnerSaved(false)}>
+            WhatsApp do dono salvo com sucesso.
+          </Alert>
+        )}
+
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <TextField
+            label="WhatsApp do dono"
+            placeholder="(11) 99999-9999"
+            value={ownerPhone}
+            onChange={(e) => setOwnerPhone(e.target.value)}
+            disabled={ownerLoading || ownerSaving}
+            size="small"
+            sx={{ flex: 1, minWidth: 240 }}
+            helperText="Inclua o DDD. O DDI (55) é adicionado automaticamente."
+          />
+          <Button
+            variant="contained"
+            onClick={handleSaveOwnerPhone}
+            disabled={ownerSaving || ownerLoading || !ownerPhone.trim()}
+            startIcon={ownerSaving ? <CircularProgress size={18} color="inherit" /> : <Save />}
+            sx={{ mt: 0.25 }}
+          >
+            {ownerSaving ? 'Salvando...' : 'Salvar'}
+          </Button>
+        </Box>
       </Paper>
 
       {/* QR / Loading section */}
