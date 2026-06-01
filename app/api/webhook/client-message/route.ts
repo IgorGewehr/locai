@@ -20,6 +20,7 @@ const ClientMessageWebhookSchema = z.object({
   event: z.enum(['message', 'message_ack', 'typing', 'presence']),
   data: z.object({
     from: z.string(),
+    pushName: z.string().optional(),
     message: z.string().optional(),
     messageId: z.string(),
     timestamp: z.string(),
@@ -122,8 +123,13 @@ export async function POST(request: NextRequest) {
     const existingConversations = await services.conversations.getWhere('clientPhone', '==', phone);
     let conversationId: string;
 
-    // Format phone for display: strip @c.us suffix, add + prefix
-    const displayPhone = phone.replace(/@[a-z.]+$/i, '').replace(/^(\d+)$/, '+$1');
+    // Format phone for display: strip suffixes, format as local BR number
+    const barePhone = phone.replace(/@[a-z.]+$/i, '');
+    // If it looks like a real BR phone (starts with 55, 12-13 digits), format nicely
+    const isBRPhone = /^55\d{10,11}$/.test(barePhone);
+    const displayPhone = isBRPhone
+      ? `(${barePhone.slice(2, 4)}) ${barePhone.slice(4, 9)}-${barePhone.slice(9)}`
+      : barePhone;
 
     // Best available name: pushName from WhatsApp > formatted phone
     const bestName = pushName || displayPhone;
