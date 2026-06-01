@@ -1047,16 +1047,9 @@ export default function TransactionsPage() {
                               #{relatedReservation.id.slice(-8)} - {relatedReservation.status}
                             </Typography>
                           </Box>
-                          <Button
-                            size="small"
-                            endIcon={<ArrowForward />}
-                            onClick={() => {
-                              setDetailsOpen(false);
-                              router.push(`/dashboard/reservations/${relatedReservation.id}`);
-                            }}
-                          >
-                            Ver Reserva
-                          </Button>
+                          <Typography variant="caption" color="text.secondary">
+                            Reserva gerenciada no Airbnb
+                          </Typography>
                         </Box>
                       </CardContent>
                     </Card>

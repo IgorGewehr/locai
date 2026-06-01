@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Box, Typography, InputBase, IconButton, CircularProgress, alpha } from '@mui/material';
 import {
   AutoAwesome, ArrowUpward, LockOutlined, KeyboardCommandKey, InsertChartOutlined,
-  Inbox, Chat, People, Home, CalendarMonth, Event, AccountBalanceWallet, Settings,
+  Inbox, Chat, People, Home, Event, AccountBalanceWallet, Settings,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useTenant } from '@/contexts/TenantContext';
@@ -19,7 +19,6 @@ const MODULES = [
   { label: 'Conversas', href: '/dashboard/conversas', icon: Chat, color: '#ec4899' },
   { label: 'Clientes', href: '/dashboard/clients', icon: People, color: '#f43f5e' },
   { label: 'Propriedades', href: '/dashboard/properties', icon: Home, color: '#f59e0b' },
-  { label: 'Reservas', href: '/dashboard/reservations', icon: CalendarMonth, color: '#10b981' },
   { label: 'Agenda', href: '/dashboard/agenda', icon: Event, color: '#14b8a6' },
   { label: 'Financeiro', href: '/dashboard/financeiro', icon: AccountBalanceWallet, color: '#0ea5e9' },
   { label: 'Configurações', href: '/dashboard/settings', icon: Settings, color: '#94a3b8' },

@@ -758,8 +758,8 @@ export default function ClientDetailPage() {
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <IconButton
                               size="small"
-                              onClick={() => router.push(`/dashboard/reservations/${reservation.id}`)}
-                              title="Ver detalhes"
+                              disabled
+                              title="Reserva gerenciada no Airbnb"
                             >
                               <Visibility sx={{ fontSize: 18 }} />
                             </IconButton>
@@ -844,7 +844,7 @@ export default function ClientDetailPage() {
                   title: isVisit ? 'Visita agendada' : 'Reserva criada',
                   description: `${res.propertyName} - ${safeFormatDate(res.checkIn, DateFormats.SHORT)} a ${safeFormatDate(res.checkOut, DateFormats.SHORT)}`,
                   status: res.status,
-                  link: `/dashboard/reservations/${res.id}`,
+                  link: null,
                   icon: isVisit ? <Event color="secondary" /> : <Home color="primary" />
                 });
               });
@@ -875,18 +875,18 @@ export default function ClientDetailPage() {
               }
               
               return activities.map((activity) => (
-                <Paper 
-                  key={activity.id} 
-                  sx={{ 
+                <Paper
+                  key={activity.id}
+                  sx={{
                     p: 2,
-                    cursor: 'pointer',
+                    cursor: activity.link ? 'pointer' : 'default',
                     transition: 'all 0.2s',
-                    '&:hover': {
+                    '&:hover': activity.link ? {
                       backgroundColor: 'action.hover',
                       transform: 'translateX(4px)'
-                    }
+                    } : {}
                   }}
-                  onClick={() => router.push(activity.link)}
+                  onClick={() => activity.link && router.push(activity.link)}
                 >
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Box sx={{ pt: 0.5 }}>

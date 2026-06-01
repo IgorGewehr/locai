@@ -37,7 +37,6 @@ import {
   Pets,
   Home,
   CalendarMonth,
-  OpenInNew,
   Event,
   Schedule,
 } from '@mui/icons-material';
@@ -443,19 +442,12 @@ export default function PropertyViewPage() {
                         sx={{
                           p: 2,
                           mb: 2,
-                          cursor: 'pointer',
                           transition: 'all 0.2s',
                           border: '1px solid',
                           borderColor: 'divider',
-                          '&:hover': {
-                            borderColor: 'primary.main',
-                            transform: 'translateY(-2px)',
-                            boxShadow: 2,
-                          },
                           opacity: isPast ? 0.7 : 1,
                           backgroundColor: isCurrent ? 'action.selected' : 'background.paper',
                         }}
-                        onClick={() => router.push(`/dashboard/reservations?id=${reservation.id}`)}
                       >
                         <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
                           <Box display="flex" alignItems="center" gap={1}>
@@ -464,12 +456,9 @@ export default function PropertyViewPage() {
                               {isVisit ? 'Visita Agendada' : 'Reserva'} #{reservation.id.slice(-6)}
                             </Typography>
                           </Box>
-                          <IconButton size="small" onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/dashboard/reservations?id=${reservation.id}`);
-                          }}>
-                            <OpenInNew fontSize="small" />
-                          </IconButton>
+                          <Typography variant="caption" color="text.secondary">
+                            Airbnb
+                          </Typography>
                         </Box>
                         
                         <Box display="flex" alignItems="center" gap={2} mb={1}>
