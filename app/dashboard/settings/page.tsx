@@ -44,7 +44,7 @@ const SETTINGS_CARDS: SettingsCard[] = [
   {
     id: 'ai-config',
     title: 'Inteligência Artificial',
-    description: 'Comportamento e personalidade da Sofia.',
+    description: 'Tom, regras e personalidade da IA.',
     icon: <SmartToyIcon sx={{ fontSize: 26 }} />,
     path: '/dashboard/settings/ai-config',
   },

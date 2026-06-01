@@ -104,11 +104,41 @@ async function _buildTenantContext(tenantId: string) {
   };
 }
 
+async function loadAgentSettings(tenantId: string): Promise<{
+  tone: string;
+  specialInstructions: string;
+  customRules: string[];
+} | null> {
+  try {
+    const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+    const { getApp } = await import('firebase/app');
+    const db = getFirestore(getApp());
+    const ref = doc(db, `tenants/${tenantId}/config/agent-settings`);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      logger.info('agent.settings.not_found', { tenantId: tenantId.slice(0, 8) + '***' });
+      return null;
+    }
+    const data = snap.data();
+    return {
+      tone: data.tone || 'friendly',
+      specialInstructions: data.specialInstructions || '',
+      customRules: Array.isArray(data.customRules) ? data.customRules : [],
+    };
+  } catch (err) {
+    logger.warn('agent.settings.load_failed', { error: (err as Error).message });
+    return null;
+  }
+}
+
 export async function dispatchToAgent(tenantId: string, input: DispatchInput): Promise<void> {
   const baseUrl = process.env.LOCAI_AGENT_URL || 'http://localhost:8090';
-  const ctx = await _buildTenantContext(tenantId);
+  const [ctx, agentSettings] = await Promise.all([
+    _buildTenantContext(tenantId),
+    loadAgentSettings(tenantId),
+  ]);
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     message_id: input.messageId,
     conversation_id: input.conversationId,
     message: input.message,
@@ -118,9 +148,16 @@ export async function dispatchToAgent(tenantId: string, input: DispatchInput): P
     recipient_id: input.recipientId,
     history: input.history || [],
     use_case: 'imobiliario',
-    tone: 'friendly',
+    tone: agentSettings?.tone || 'friendly',
     ...ctx,
   };
+
+  if (agentSettings?.specialInstructions) {
+    payload.special_instructions = agentSettings.specialInstructions;
+  }
+  if (agentSettings?.customRules?.length) {
+    payload.custom_rules = agentSettings.customRules;
+  }
 
   const raw = JSON.stringify(payload);
   const { sig, ts } = _sign(tenantId, raw);

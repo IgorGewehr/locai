@@ -31,13 +31,12 @@ import {
   Settings as SettingsIcon,
   Person as PersonIcon,
   Business as BusinessIcon,
-  Gavel as PolicyIcon,
   Menu as MenuIcon,
   Close as CloseIcon,
-  Payment as PaymentIcon,
   ArrowBack as ArrowBackIcon,
   Dashboard as DashboardIcon,
   WhatsApp as WhatsAppIcon,
+  SmartToy as SmartToyIcon,
 } from '@mui/icons-material';
 import { Breadcrumbs, Link } from '@mui/material';
 import { usePathname, useRouter } from 'next/navigation';
@@ -56,20 +55,6 @@ interface SettingsSection {
 
 const SETTINGS_SECTIONS: SettingsSection[] = [
   {
-    id: 'whatsapp',
-    label: 'WhatsApp',
-    icon: <WhatsAppIcon />,
-    path: '/dashboard/settings/whatsapp',
-    description: 'Conexão e integração do WhatsApp',
-  },
-  {
-    id: 'profile',
-    label: 'Perfil',
-    icon: <PersonIcon />,
-    path: '/dashboard/settings/profile',
-    description: 'Informações pessoais e senha',
-  },
-  {
     id: 'company',
     label: 'Empresa',
     icon: <BusinessIcon />,
@@ -77,18 +62,25 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     description: 'Dados da empresa',
   },
   {
-    id: 'financial',
-    label: 'Dados Financeiros',
-    icon: <PaymentIcon />,
-    path: '/dashboard/settings/financial',
-    description: 'Informações bancárias para TED',
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: <WhatsAppIcon />,
+    path: '/dashboard/settings/whatsapp',
+    description: 'Conexão e integração do WhatsApp',
   },
   {
-    id: 'policies',
-    label: 'Políticas',
-    icon: <PolicyIcon />,
-    path: '/dashboard/settings/policies',
-    description: 'Regras e políticas de atendimento',
+    id: 'ai-config',
+    label: 'Inteligência Artificial',
+    icon: <SmartToyIcon />,
+    path: '/dashboard/settings/ai-config',
+    description: 'Tom, regras e personalidade da IA',
+  },
+  {
+    id: 'profile',
+    label: 'Perfil',
+    icon: <PersonIcon />,
+    path: '/dashboard/settings/profile',
+    description: 'Informações pessoais e senha',
   },
 ];
 
@@ -259,7 +251,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
               </ListItem>
 
               {/* Divider after certain sections */}
-              {(section.id === 'profile' || section.id === 'financial') && (
+              {section.id === 'ai-config' && (
                 <Divider sx={{ my: 1.5, mx: 2 }} />
               )}
             </Box>
